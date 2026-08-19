@@ -16,8 +16,11 @@ from database import get_db
 router = APIRouter(prefix="/school", dependencies=[Depends(RoleChecker(["school_admin"]))])
 templates = Jinja2Templates(directory="templates")
 
-# Ensure uploads directory exists
-UPLOAD_DIR = "uploads"
+# Ensure uploads directory exists (use /tmp/uploads in serverless read-only environments)
+if os.environ.get("VERCEL") or not os.access(".", os.W_OK):
+    UPLOAD_DIR = "/tmp/uploads"
+else:
+    UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("", response_class=HTMLResponse)
