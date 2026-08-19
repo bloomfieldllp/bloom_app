@@ -12,7 +12,6 @@ OutputDir=dist
 OutputBaseFilename=BloomOperatorSetup
 Compression=lzma
 SolidCompression=yes
-SetupIconFile=static\images\loader-01.png
 WizardStyle=modern
 
 [Files]
