@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Projects Directory - BLOOM ID CARD{% endblock %}
+
+{% block content %}
+<div class="directory-header" style="margin-bottom: 2rem;">
+    <h1 style="font-weight: 800; letter-spacing: -0.03em; margin: 0;">Projects Directory</h1>
+    <p class="subtitle" style="margin-top: 0.25rem;">View and manage all active photography projects.</p>
+</div>
+
+<div class="card" style="padding: 1.5rem; width: 100%; min-width: 0;">
+    
+    <!-- Table Toolbar with Embedded Filter Dropdown -->
+    <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; width: 100%;">
+        
+        <!-- Left: Search input + embedded filter icon -->
+        <div style="position: relative; flex: 1; min-width: 250px; max-width: 400px; display: flex; align-items: center;">
+            <input type="text" class="form-control bloom-search-input" placeholder="Search projects..." style="padding-right: 2.75rem; width: 100%;">
+            <button type="button" onclick="toggleFilterDropdown(event)" style="position: absolute; right: 0.5rem; border: none; background: none; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; height: 32px; width: 32px; border-radius: 50%; hover: background-color: var(--border-color); z-index: 10;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-filter"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
+            
+            <!-- Filters Dropdown Panel -->
+            <div id="filterDropdownPopover" class="card" style="display: none; position: absolute; top: 48px; left: 0; z-index: 250; min-width: 280px; padding: 1.25rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05); flex-direction: column; gap: 1rem;">
+                <div style="font-weight: 700; font-size: 0.85rem; text-transform: uppercase; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
+                    Filter Options
+                </div>
+                <form action="/admin/projects/directory" method="GET" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div class="form-group" style="margin: 0;">
+                        <label for="filter_school" style="font-size: 0.8rem; font-weight: 600;">School</label>
+                        <select id="filter_school" name="school_id" class="form-control" onchange="this.form.submit()">
+                            <option value="all" {% if school_id == 'all' %}selected{% endif %}>All Schools</option>
+                            {% for school in schools %}
+                                <option value="{{ school._id }}" {% if school_id == school._id %}selected{% endif %}>{{ school.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label for="filter_status" style="font-size: 0.8rem; font-weight: 600;">Status</label>
+                        <select id="filter_status" name="status" class="form-control" onchange="this.form.submit()">
+                            <option value="all" {% if status == 'all' %}selected{% endif %}>All Statuses</option>
+                            <option value="prospect" {% if status == 'prospect' %}selected{% endif %}>Prospect</option>
+                            <option value="interested" {% if status == 'interested' %}selected{% endif %}>Interested</option>
+                            <option value="confirmed" {% if status == 'confirmed' %}selected{% endif %}>Confirmed</option>
+                            <option value="scheduled" {% if status == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                            <option value="in_progress" {% if status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                            <option value="completed" {% if status == 'completed' %}selected{% endif %}>Completed</option>
+                            <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                        </select>
+                    </div>
+                    <a href="/admin/projects/directory" class="btn btn-secondary" style="text-align: center; text-decoration: none; padding: 0.5rem; font-size: 0.85rem;">Clear Filters</a>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Right: Actions wrapper for Columns Config button -->
+        <div class="table-actions" style="position: relative;"></div>
+        
+    </div>
+
+    <!-- Enhanced Table Container -->
+    {% if not projects %}
+        <p style="color: var(--text-secondary); text-align: center; padding: 3rem 0;">No matching projects found.</p>
+    {% else %}
+        <div class="table-container" style="width: 100%; min-width: 0;">
+            <table class="enhanced-table">
+                <thead>
+                    <tr>
+                        <th>Project ID</th>
+                        <th>School Name</th>
+                        <th>Academic Year</th>
+                        <th>Start Date</th>
+                        <th>Assigned Operator</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in projects %}
+                        <tr>
+                            <td style="font-weight: 600;"><code>{{ p.project_id }}</code></td>
+                            <td>{{ p.school_name }}</td>
+                            <td>{{ p.academic_year }}</td>
+                            <td>
+                                {% if p.photography_start_date %}
+                                    {{ p.photography_start_date.strftime('%Y-%m-%d') }}
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-style: italic;">Not Set</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ p.operator_name }}</td>
+                            <td>
+                                <span class="badge {% if p.status in ['confirmed', 'scheduled', 'in_progress'] %}badge-success{% elif p.status == 'completed' %}badge-secondary{% else %}badge-warning{% endif %}">
+                                    {{ (p.status or 'prospect').title() }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="/admin/projects/{{ p._id }}/edit" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; min-height: auto; text-decoration: none;">Edit</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleFilterDropdown(e) {
+        e.stopPropagation();
+        const pop = document.getElementById('filterDropdownPopover');
+        const isOpen = pop.style.display === 'flex';
+        pop.style.display = isOpen ? 'none' : 'flex';
+    }
+
+    document.addEventListener('click', () => {
+        const filterPop = document.getElementById('filterDropdownPopover');
+        if (filterPop) filterPop.style.display = 'none';
+    });
+</script>
+{% endblock %}

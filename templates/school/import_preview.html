@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Import Preview - Bloom{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h1 style="margin-top: 0.5rem;">Import Validation Preview</h1>
+    <p class="subtitle">Review the validation summary below before writing student records to the database.</p>
+</div>
+
+<div class="dashboard-layout" style="grid-template-columns: 3fr 2fr;">
+    <!-- Left: Validation breakdown details -->
+    <div>
+        <div class="card" style="padding: 1.5rem;">
+            <h3 style="margin-bottom: 1.25rem;">Validation Report</h3>
+            
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <div class="stat-card" style="padding: 1rem; background-color: var(--bg-primary);">
+                    <span class="stat-label" style="font-size: 0.75rem;">Total Rows</span>
+                    <span class="stat-value" style="font-size: 1.5rem;">{{ report.total_rows }}</span>
+                </div>
+                <div class="stat-card" style="padding: 1rem; background-color: var(--bg-primary);">
+                    <span class="stat-label" style="font-size: 0.75rem;">Valid Rows</span>
+                    <span class="stat-value" style="font-size: 1.5rem; color: var(--success);">{{ report.valid_records|length }}</span>
+                </div>
+                <div class="stat-card" style="padding: 1rem; background-color: var(--bg-primary);">
+                    <span class="stat-label" style="font-size: 0.75rem;">Duplicate GR</span>
+                    <span class="stat-value" style="font-size: 1.5rem; color: {% if report.duplicate_gr_in_file_count > 0 %}var(--danger){% else %}var(--text-secondary){% endif %};">
+                        {{ report.duplicate_gr_in_file_count }}
+                    </span>
+                </div>
+                <div class="stat-card" style="padding: 1rem; background-color: var(--bg-primary);">
+                    <span class="stat-label" style="font-size: 0.75rem;">Missing Fields</span>
+                    <span class="stat-value" style="font-size: 1.5rem; color: {% if (report.missing_name_count + report.missing_gr_count + report.missing_std_count) > 0 %}var(--danger){% else %}var(--text-secondary){% endif %};">
+                        {{ report.missing_name_count + report.missing_gr_count + report.missing_std_count }}
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Issues lists if any -->
+            {% if report.duplicate_gr_in_file_count > 0 %}
+                <div class="alert alert-danger" style="margin-bottom: 1rem; font-size: 0.9rem;">
+                    <strong>Duplicates detected in the uploaded file:</strong>
+                    <ul style="margin-left: 1.5rem; margin-top: 0.25rem;">
+                        {% for gr, lines in report.duplicate_gr_in_file.items() %}
+                            <li>GR <code>{{ gr }}</code> is duplicated on lines: {{ lines|join(', ') }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+            
+            {% if report.duplicate_gr_in_db_count > 0 %}
+                <div class="alert alert-warning" style="margin-bottom: 1rem; font-size: 0.9rem; background-color: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2); color: var(--warning);">
+                    <strong>{{ report.duplicate_gr_in_db_count }} GR numbers match existing records in this project:</strong>
+                    <div style="margin-top: 0.25rem; font-size: 0.85rem; max-height: 100px; overflow-y: auto; color: var(--text-primary);">
+                        {{ report.duplicate_gr_in_db|join(', ') }}
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if report.missing_name_count > 0 or report.missing_gr_count > 0 or report.missing_std_count > 0 %}
+                <div class="alert alert-danger" style="margin-bottom: 1rem; font-size: 0.9rem;">
+                    <strong>Records with missing required fields:</strong>
+                    <ul style="margin-left: 1.5rem; margin-top: 0.25rem;">
+                        {% if report.missing_gr_count > 0 %}<li>{{ report.missing_gr_count }} records are missing GR values.</li>{% endif %}
+                        {% if report.missing_name_count > 0 %}<li>{{ report.missing_name_count }} records are missing Student Name.</li>{% endif %}
+                        {% if report.missing_std_count > 0 %}<li>{{ report.missing_std_count }} records are missing Standard.</li>{% endif %}
+                    </ul>
+                </div>
+            {% endif %}
+            
+            {% if report.valid_records|length == 0 %}
+                <div class="alert alert-danger" style="margin: 0;">
+                    No valid records found to import. Please check your columns mapping or update the file and upload again.
+                </div>
+            {% else %}
+                <div class="alert alert-success" style="margin: 0;">
+                    Ready to import {{ report.valid_records|length }} valid records.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right: Import execution settings -->
+    <div>
+        <div class="card" style="padding: 1.5rem; margin: 0;">
+            <h3 style="margin-bottom: 1rem;">Import Actions</h3>
+            
+            {% if report.valid_records|length > 0 %}
+                <form action="/school/projects/{{ project._id }}/execute-import" method="POST">
+                    <!-- Hidden inputs -->
+                    <input type="hidden" name="temp_file_path" value="{{ temp_file_path }}">
+                    <input type="hidden" name="filename" value="{{ filename }}">
+                    <input type="hidden" name="mapping_json" value="{{ mapping_json }}">
+                    
+                    <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+                        Choose how to handle the import against existing project records (currently containing {{ existing_count }} students).
+                    </p>
+                    
+                    <div class="form-group">
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="display: flex; align-items: flex-start; gap: 0.5rem; font-weight: 600; cursor: pointer; color: var(--text-primary);">
+                                <input type="radio" name="import_action" value="update" checked style="margin-top: 0.25rem;">
+                                <div>
+                                    Update existing & Add new
+                                    <span style="display: block; font-weight: 400; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.15rem;">
+                                        Updates student fields (e.g. name, standard) matching on GR, while preserving existing photo statuses, and appends new GRs. (Recommended)
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="display: flex; align-items: flex-start; gap: 0.5rem; font-weight: 600; cursor: pointer; color: var(--text-primary);">
+                                <input type="radio" name="import_action" value="add_only" style="margin-top: 0.25rem;">
+                                <div>
+                                    Add new records only
+                                    <span style="display: block; font-weight: 400; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.15rem;">
+                                        Only imports students whose GR does not exist in the database. Skips duplicates completely.
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label style="display: flex; align-items: flex-start; gap: 0.5rem; font-weight: 600; cursor: pointer; color: var(--text-primary);">
+                                <input type="radio" name="import_action" value="replace" style="margin-top: 0.25rem;">
+                                <div>
+                                    Replace project data
+                                    <span style="display: block; font-weight: 400; font-size: 0.8rem; color: var(--danger); margin-top: 0.15rem;">
+                                        ⚠️ WARNING: Deletes all existing student records and photo metadata in this project, and performs a fresh import.
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                        <button type="submit" class="btn btn-primary" style="width: 100%; color: white;">Import Valid Records</button>
+                        <a href="/school" class="btn btn-secondary" style="text-align: center;">Cancel Import</a>
+                    </div>
+                </form>
+            {% else %}
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">No valid records were resolved from the columns mapping configuration.</p>
+                <a href="/school/projects/{{ project._id }}/import" class="btn btn-secondary" style="width: 100%; text-align: center;">Back to Upload</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

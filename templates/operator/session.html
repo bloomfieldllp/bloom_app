@@ -1,0 +1,750 @@
+{% extends "base.html" %}
+
+{% block title %}Photography Session - BLOOM ID CARD{% endblock %}
+
+{% block head %}
+<style>
+    .session-container {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr;
+        gap: 2rem;
+        min-height: calc(100vh - 120px);
+        height: auto;
+    }
+    
+    @media (max-width: 1024px) {
+        .session-container {
+            grid-template-columns: 1fr;
+            height: auto;
+        }
+    }
+    
+    .panel {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-width: 0;
+    }
+    
+    .card-workspace {
+        background-color: var(--card-bg);
+        border-radius: 20px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        flex: 1;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
+    }
+    
+    .active-student-card {
+        padding: 1.25rem;
+        background-color: var(--bg-primary);
+        border-radius: 12px;
+        border-left: 5px solid var(--brand-primary);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .alert-workspace {
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        border: 1px solid;
+    }
+    
+    .alert-workspace-warning {
+        background-color: rgba(245, 158, 11, 0.1);
+        border-color: rgba(245, 158, 11, 0.2);
+        color: #b45309;
+    }
+    
+    .alert-workspace-info {
+        background-color: rgba(37, 99, 235, 0.1);
+        border-color: rgba(37, 99, 235, 0.2);
+        color: #1e3a8a;
+    }
+    
+    .student-row {
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+    .student-row.selected-row td {
+        background-color: #fff4ed !important;
+        font-weight: 600;
+    }
+    .student-row.selected-row {
+        border-left: 4px solid var(--brand-primary);
+    }
+    
+    .storage-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+        font-weight: 700;
+    }
+    .storage-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .storage-dot-connected { background-color: var(--success); }
+    .storage-dot-unavailable { background-color: var(--danger); }
+    
+    @keyframes spinner-border {
+        to { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="session-container">
+    <!-- Left Panel: Student Directory & Filters -->
+    <div class="panel">
+        <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
+            <div>
+                <a href="/operator" style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">← Back to Dashboard</a>
+                <h1 style="margin-top: 0.25rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0;">Photography Session</h1>
+                <p class="subtitle" style="margin: 0;">School: <strong>{{ school.name }}</strong></p>
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <a href="/operator/projects/{{ project._id }}/export/excel" class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    Excel
+                </a>
+                <a href="/operator/projects/{{ project._id }}/export/csv" class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    CSV
+                </a>
+                <form action="/operator/projects/{{ project._id }}/session/pause" method="POST" style="margin: 0;">
+                    <button type="submit" class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem;">
+                        Pause Session
+                    </button>
+                </form>
+                <form action="/operator/projects/{{ project._id }}/session/end" method="POST" id="end-session-form" style="margin: 0;">
+                    <button type="submit" id="end-session-btn" class="btn btn-primary" style="color: white; font-weight: 700; padding: 0.5rem 0.75rem; font-size: 0.85rem; display: {% if can_end %}inline-flex{% else %}none{% endif %};">
+                        End Session
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Search & Filter Card -->
+        <div class="card" style="padding: 1rem; margin-bottom: 1rem; width: 100%; min-width: 0; position: relative;">
+            <div style="display: flex; gap: 0.75rem; align-items: center; width: 100%;">
+                <div style="flex: 1; position: relative;">
+                    <input type="text" id="session-search-input" class="form-control" placeholder="Search by Name or GR No..." oninput="filterSessionTable()" style="padding-left: 2.25rem; height: 38px; box-sizing: border-box; width: 100%;">
+                    <!-- Search Icon -->
+                    <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    </span>
+                </div>
+                
+                <!-- Filter Dropdown Container -->
+                <div style="position: relative;">
+                    <button type="button" class="btn btn-secondary" onclick="toggleFilterDropdown()" style="display: inline-flex; align-items: center; gap: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; height: 38px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                        <span>Filter</span>
+                    </button>
+                    
+                    <!-- Dropdown Options Panel -->
+                    <div id="filter-dropdown-panel" style="display: none; position: absolute; right: 0; top: 44px; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; width: 220px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); z-index: 100; flex-direction: column; gap: 0.75rem;">
+                        <div style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.25rem;">Filter Records</div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                            <label for="session-std-filter" style="font-size: 0.75rem; font-weight: 600; color: var(--brand-dark);">Standard / Class</label>
+                            <select id="session-std-filter" class="form-control" onchange="filterSessionTable()" style="font-size: 0.85rem; height: 34px;">
+                                <option value="">All Standards</option>
+                                {% for std in distinct_standards %}
+                                    <option value="Standard {{ std }}">Standard {{ std }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                            <label for="session-div-filter" style="font-size: 0.75rem; font-weight: 600; color: var(--brand-dark);">Division / Section</label>
+                            <select id="session-div-filter" class="form-control" onchange="filterSessionTable()" style="font-size: 0.85rem; height: 34px;">
+                                <option value="">All Divisions</option>
+                                {% for div in distinct_divisions %}
+                                    <option value="division-{{ div }}">Division {{ div }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <button type="button" class="btn btn-secondary" onclick="resetFilters()" style="padding: 4px; font-size: 0.75rem; width: 100%; text-align: center; justify-content: center; margin-top: 0.25rem;">
+                            Reset Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+                <span style="font-size: 0.8rem; color: var(--text-secondary);" id="records-count-text">
+                    Showing {{ students|length }} of {{ students|length }} records.
+                </span>
+            </div>
+        </div>
+        
+        <!-- Scrollable Student List Card -->
+        <div class="card" style="padding: 1.5rem; flex: 1; overflow: hidden; display: flex; flex-direction: column; margin: 0; min-height: 350px;">
+            <div class="table-container" style="flex: 1; max-height: none;">
+                <table class="enhanced-table" id="session-student-table" data-no-search="true">
+                    <thead>
+                        <tr>
+                            <th>GR</th>
+                            <th>Name</th>
+                            <th>Standard</th>
+                            <th>Division</th>
+                            <th>Roll</th>
+                            <th>Photo Filename</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in students %}
+                            <tr class="student-row" id="row-{{ s._id }}" onclick="selectStudent('{{ s._id }}')">
+                                <td><code class="badge badge-secondary" style="font-size: 0.85rem;">{{ s.gr }}</code></td>
+                                <td style="font-weight: 600;" class="td-name">{{ s.name }}</td>
+                                <td class="td-std">Standard {{ s.standard }}</td>
+                                <td class="td-div">
+                                    {% if s.division %}
+                                        Division <span class="div-val">{{ s.division }}</span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ s.roll_number or "-" }}</td>
+                                <td class="td-filename" style="font-family: monospace; font-size: 0.8rem; color: var(--text-secondary);">
+                                    {{ s.photo_filename }}
+                                </td>
+                                <td class="td-status">
+                                    <span class="badge {% if s.photo_status == 'captured' %}badge-success{% elif s.photo_status == 'pending_retake' %}badge-warning{% else %}badge-secondary{% endif %}">
+                                        {% if s.photo_status == 'captured' %}Completed{% else %}{{ s.photo_status.replace('_', ' ').title() }}{% endif %}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Panel: Viewfinder & Pen Drive Setup -->
+    <div class="panel">
+        <div class="card-workspace">
+            <!-- Storage Configuration -->
+            <div id="storage-config-panel" style="padding: 1.25rem; border-radius: 12px; background-color: var(--bg-primary); border: 1px solid var(--border-color);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <h4 style="margin: 0; font-weight: 700; font-size: 0.95rem;">PHOTO STORAGE SETTING</h4>
+                    <span id="storage-status-indicator" class="storage-indicator">
+                        <span class="storage-dot storage-dot-unavailable"></span>
+                        <span>Disconnected</span>
+                    </span>
+                </div>
+                
+                <form id="storage-config-form" onsubmit="saveStorageConfig(event)">
+                    <div class="form-group" style="margin-bottom: 0.5rem;">
+                        <label style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);">Incoming Folder (Watcher Path)</label>
+                        <input type="text" id="incoming-folder-input" class="form-control" style="font-size: 0.85rem;" placeholder="e.g. E:/SchoolPhotos/Incoming/" value="{{ project.incoming_folder or '' }}" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.75rem;">
+                        <label style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);">Final Storage Folder</label>
+                        <input type="text" id="final-storage-input" class="form-control" style="font-size: 0.85rem;" placeholder="e.g. E:/SchoolPhotos/" value="{{ project.final_storage_folder or '' }}" required>
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; font-size: 0.8rem; padding: 6px 12px;">Save Directory Config</button>
+                </form>
+            </div>
+            
+            <!-- Dynamic State / Alert Display -->
+            <div id="alert-console-wrapper">
+                <!-- Injected dynamically: Duplicates or Unassigned alerts -->
+            </div>
+            
+            <!-- Active Student Panel -->
+            <div id="active-student-panel" class="active-student-card" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <span style="font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; color: var(--brand-primary); text-transform: uppercase;">Active Student Target</span>
+                        <h3 id="active-name" style="margin: 0.15rem 0 0 0; font-weight: 800; font-size: 1.3rem;"></h3>
+                        <p id="active-meta" style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-secondary);"></p>
+                    </div>
+                    <span id="active-status-badge" class="badge"></span>
+                </div>
+                
+                <div style="border-top: 1px solid var(--border-color); margin-top: 0.75rem; padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 0.8rem;">
+                        File: <code id="active-filename" style="font-weight: 600; color: var(--text-secondary);">—</code>
+                    </div>
+                    <div id="active-actions-wrapper">
+                        <!-- Retake button is shown here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="no-active-student-card" style="padding: 2.5rem; text-align: center; border: 2px dashed var(--border-color); border-radius: 12px; color: var(--text-secondary); font-size: 0.9rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary); margin-bottom: 0.5rem;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <div style="font-weight: 700; color: var(--text-primary);">No Student Active</div>
+                Select a student from the directory to begin monitoring photo directory.
+            </div>
+            
+            <!-- Live Progress Status Bar -->
+            <div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <div style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem;">
+                        <span>Session photographed</span>
+                        <span id="session-pct-lbl">{{ photographed_percentage }}%</span>
+                    </div>
+                    <div style="width: 100%; height: 6px; background-color: var(--bg-primary); border-radius: 3px; overflow: hidden;">
+                        <div id="session-progress-fill" style="width: {{ photographed_percentage }}%; height: 100%; background-color: var(--brand-primary); transition: width 0.3s ease;"></div>
+                    </div>
+                </div>
+                <div style="text-align: right; font-size: 0.8rem; line-height: 1.4;">
+                    <div>Captured: <strong id="stats-captured">{{ captured_students }}</strong>/<strong id="stats-total">{{ total_students }}</strong></div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Retakes: <strong id="stats-retakes">{{ pending_retake_students }}</strong></div>
+                </div>
+            </div>
+            
+            <!-- Quick Progression Actions -->
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                <button type="button" id="next-student-btn" class="btn btn-secondary" onclick="selectNextPendingStudent()" style="width: 100%; justify-content: center; font-weight: 700;">
+                    Next Student →
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const projectId = "{{ project._id }}";
+    let activeStudentId = null;
+    let studentRowsData = []; // Store mapping for row checks
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Run poll immediately and configure timer
+        pollSessionStatus();
+        setInterval(pollSessionStatus, 1000);
+    });
+    
+    // Save Configured folder paths
+    async function saveStorageConfig(e) {
+        e.preventDefault();
+        const incoming = document.getElementById('incoming-folder-input').value.trim();
+        const finalStorage = document.getElementById('final-storage-input').value.trim();
+        
+        const formData = new FormData();
+        formData.append('incoming_folder', incoming);
+        formData.append('final_storage_folder', finalStorage);
+        
+        try {
+            const res = await fetch(`/operator/projects/${projectId}/config`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                updateStorageIndicator(data.watcher_status);
+            }
+        } catch(err) {
+            console.error(err);
+            alert('Failed to save directory configuration.');
+        }
+    }
+    
+    function updateStorageIndicator(status) {
+        const ind = document.getElementById('storage-status-indicator');
+        if (status === 'connected') {
+            ind.innerHTML = `<span class="storage-dot storage-dot-connected"></span><span>Connected</span>`;
+        } else {
+            ind.innerHTML = `<span class="storage-dot storage-dot-unavailable"></span><span style="color: var(--danger);">Unavailable</span>`;
+        }
+    }
+    
+    // Poll operator status data
+    async function pollSessionStatus() {
+        try {
+            const res = await fetch(`/operator/projects/${projectId}/session/status`);
+            if (res.status !== 200) return;
+            const data = await res.json();
+            
+            // 1. Update Storage Dot
+            updateStorageIndicator(data.watcher_status);
+            
+            // 2. Render Active Student details
+            renderActiveStudent(data.active_student);
+            
+            // 3. Render Warning alerts
+            renderAlertConsole(data.current_file_detected, data.unassigned_photos);
+            
+            // 4. Update Stats progress bar
+            updateStatsWidgets(data.stats);
+            
+            // 5. Update student rows database records dynamically
+            updateTableRecords(data.student_records);
+            
+        } catch(err) {
+            console.error('Session Polling Error:', err);
+        }
+    }
+    
+    function renderActiveStudent(stu) {
+        const panel = document.getElementById('active-student-panel');
+        const placeholder = document.getElementById('no-active-student-card');
+        
+        if (!stu) {
+            activeStudentId = null;
+            panel.style.display = 'none';
+            placeholder.style.display = 'block';
+            return;
+        }
+        
+        activeStudentId = stu.id;
+        placeholder.style.display = 'none';
+        panel.style.display = 'flex';
+        
+        document.getElementById('active-name').textContent = stu.name;
+        document.getElementById('active-meta').textContent = `GR: ${stu.gr} | Class: ${stu.standard} | Roll: ${stu.roll_number || '-'}`;
+        document.getElementById('active-filename').textContent = stu.photo_filename;
+        
+        const badge = document.getElementById('active-status-badge');
+        const actions = document.getElementById('active-actions-wrapper');
+        
+        if (stu.photo_status === 'captured') {
+            badge.className = 'badge badge-success';
+            badge.textContent = 'COMPLETED';
+            actions.innerHTML = `
+                <button type="button" class="btn btn-secondary" onclick="markForRetake('${stu.id}', this)" style="padding: 4px 10px; font-size: 0.75rem; color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">
+                    Retake
+                </button>
+            `;
+        } else if (stu.photo_status === 'pending_retake') {
+            badge.className = 'badge badge-warning';
+            badge.textContent = 'WAITING RETAKE';
+            actions.innerHTML = '';
+        } else {
+            badge.className = 'badge badge-secondary';
+            badge.textContent = 'WAITING FOR PHOTO';
+            actions.innerHTML = '';
+        }
+    }
+    
+    function renderAlertConsole(detected, unassignedList) {
+        const consoleEl = document.getElementById('alert-console-wrapper');
+        consoleEl.innerHTML = '';
+        
+        if (!detected) return;
+        
+        if (detected.type === 'duplicate') {
+            const div = document.createElement('div');
+            div.className = 'alert-workspace alert-workspace-warning';
+            div.innerHTML = `
+                <div style="font-weight: 800; font-size: 0.9rem;">⚠️ DUPLICATE PHOTO DETECTED</div>
+                <div style="font-size: 0.85rem;">
+                    A photo arrived for <strong>${detected.student_name}</strong> but they already have a photo.
+                    <br>New file: <code>${detected.filename}</code>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                    <button type="button" class="btn btn-primary" onclick="resolveDetectedAction('replace', '${detected.filename}', '${detected.student_id}', this)" style="color: white; padding: 4px 8px; font-size: 0.75rem;">
+                        Replace Photo
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="resolveDetectedAction('ignore', '${detected.filename}', '', this)" style="padding: 4px 8px; font-size: 0.75rem;">
+                        Ignore
+                    </button>
+                </div>
+            `;
+            consoleEl.appendChild(div);
+        } else if (detected.type === 'unassigned') {
+            const div = document.createElement('div');
+            div.className = 'alert-workspace alert-workspace-info';
+            div.innerHTML = `
+                <div style="font-weight: 800; font-size: 0.9rem;">ℹ️ UNASSIGNED PHOTO DETECTED</div>
+                <div style="font-size: 0.85rem;">
+                    New photo: <code>${detected.filename}</code>
+                    <br>No student is currently selected. Highlight a student in the table and click Assign to save.
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                    <button type="button" class="btn btn-primary" id="assign-unassigned-btn" onclick="assignUnassignedPhoto('${detected.filename}', this)" style="color: white; padding: 4px 8px; font-size: 0.75rem;" disabled>
+                        Assign Selected Student
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="resolveDetectedAction('ignore', '${detected.filename}', '', this)" style="padding: 4px 8px; font-size: 0.75rem;">
+                        Ignore
+                    </button>
+                </div>
+            `;
+            consoleEl.appendChild(div);
+            
+            // Enable assign button if a row is selected
+            const highlightedRow = document.querySelector('.student-row.selected-row');
+            if (highlightedRow) {
+                const btn = document.getElementById('assign-unassigned-btn');
+                if (btn) btn.removeAttribute('disabled');
+            }
+        }
+    }
+    
+    async function resolveDetectedAction(action, filename, studentId = '', btn = null) {
+        // Disable all alert buttons to prevent double-clicks
+        const buttons = document.querySelectorAll('#alert-console-wrapper button');
+        buttons.forEach(b => {
+            b.setAttribute('disabled', 'true');
+            b.style.opacity = '0.5';
+            b.style.cursor = 'not-allowed';
+        });
+        
+        if (btn) {
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; display: inline-block; animation: spinner-border .75s linear infinite; margin-right: 4px;"></span> Processing...`;
+        }
+        
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('original_filename', filename);
+        if (studentId) formData.append('student_id', studentId);
+        
+        try {
+            const res = await fetch(`/operator/projects/${projectId}/session/action`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                pollSessionStatus();
+            } else {
+                alert("Action failed. Please try again.");
+                buttons.forEach(b => {
+                    b.removeAttribute('disabled');
+                    b.style.opacity = '1';
+                    b.style.cursor = 'pointer';
+                });
+            }
+        } catch(err) {
+            console.error(err);
+            buttons.forEach(b => {
+                b.removeAttribute('disabled');
+                b.style.opacity = '1';
+                b.style.cursor = 'pointer';
+            });
+        }
+    }
+    
+    function assignUnassignedPhoto(filename, btn) {
+        const highlightedRow = document.querySelector('.student-row.selected-row');
+        if (!highlightedRow) return;
+        const studentId = highlightedRow.id.replace('row-', '');
+        resolveDetectedAction('assign', filename, studentId, btn);
+    }
+    
+    // Select Student
+    async function selectStudent(studentId) {
+        // Highlight row instantly in the UI
+        document.querySelectorAll('.student-row').forEach(row => row.classList.remove('selected-row'));
+        const row = document.getElementById(`row-${studentId}`);
+        if (row) row.classList.add('selected-row');
+        
+        const formData = new FormData();
+        formData.append('student_id', studentId);
+        
+        try {
+            await fetch(`/operator/projects/${projectId}/session/select`, {
+                method: 'POST',
+                body: formData
+            });
+            pollSessionStatus();
+        } catch(err) {
+            console.error(err);
+        }
+    }
+    
+    // Trigger Retake
+    async function markForRetake(studentId, btn = null) {
+        if (!confirm('Start photography retake for this student? Previous photo file version will be archived.')) return;
+        
+        // Instant visual feedback for badge
+        const badge = document.getElementById('active-status-badge');
+        if (badge) {
+            badge.className = 'badge badge-warning';
+            badge.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="width: 10px; height: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; display: inline-block; animation: spinner-border .75s linear infinite; margin-right: 4px;"></span> RETAKE`;
+        }
+        
+        if (btn) {
+            btn.setAttribute('disabled', 'true');
+            btn.innerHTML = 'Starting Retake...';
+        }
+        
+        const formData = new FormData();
+        formData.append('student_id', studentId);
+        
+        try {
+            const res = await fetch(`/operator/projects/${projectId}/session/retake`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                pollSessionStatus();
+            }
+        } catch(err) {
+            console.error(err);
+        }
+    }
+    
+    // Dynamic Stats updates
+    function updateStatsWidgets(stats) {
+        document.getElementById('stats-captured').textContent = stats.captured;
+        document.getElementById('stats-total').textContent = stats.total;
+        document.getElementById('stats-retakes').textContent = stats.retakes;
+        document.getElementById('session-pct-lbl').textContent = `${stats.percentage}%`;
+        document.getElementById('session-progress-fill').style.width = `${stats.percentage}%`;
+        
+        const endBtn = document.getElementById('end-session-btn');
+        if (stats.can_end) {
+            endBtn.style.display = 'inline-flex';
+        } else {
+            endBtn.style.display = 'none';
+        }
+    }
+    
+    // Update individual student records in directory table
+    function updateTableRecords(records) {
+        records.forEach(rec => {
+            const row = document.getElementById(`row-${rec.id}`);
+            if (row) {
+                // Update Filename column
+                const filenameTd = row.querySelector('.td-filename');
+                if (filenameTd && filenameTd.textContent.trim() !== rec.photo_filename) {
+                    filenameTd.textContent = rec.photo_filename;
+                }
+                
+                // Update Status Column
+                const statusTd = row.querySelector('.td-status');
+                if (statusTd) {
+                    const badge = statusTd.querySelector('.badge');
+                    if (rec.photo_status === 'captured') {
+                        badge.className = 'badge badge-success';
+                        badge.textContent = 'Completed';
+                    } else if (rec.photo_status === 'pending_retake') {
+                        badge.className = 'badge badge-warning';
+                        badge.textContent = 'Pending Retake';
+                    } else {
+                        badge.className = 'badge badge-secondary';
+                        badge.textContent = 'Not Captured';
+                    }
+                }
+            }
+        });
+    }
+    
+    // Auto-advance to Next pending student row in list
+    function selectNextPendingStudent() {
+        const table = document.getElementById('session-student-table');
+        const rows = table.querySelectorAll('tbody tr');
+        
+        let nextRow = null;
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            // Skip hidden rows by search filters
+            if (r.style.display === 'none') continue;
+            
+            const badge = r.querySelector('.td-status .badge');
+            const status = badge ? badge.textContent.trim().toLowerCase() : '';
+            
+            if (status === 'not captured' || status === 'pending retake') {
+                nextRow = r;
+                break;
+            }
+        }
+        
+        if (nextRow) {
+            const nextId = nextRow.id.replace('row-', '');
+            selectStudent(nextId);
+            // Scroll to the selected row
+            nextRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            alert('All filtered student records have been photographed in this session.');
+        }
+    }
+    
+    // Client-side quick filter
+    function filterSessionTable() {
+        const query = document.getElementById('session-search-input').value.toLowerCase().trim();
+        const stdVal = document.getElementById('session-std-filter').value;
+        const divVal = document.getElementById('session-div-filter').value;
+        
+        const table = document.getElementById('session-student-table');
+        const rows = table.querySelectorAll('tbody tr');
+        
+        let visibleCount = 0;
+        
+        rows.forEach(row => {
+            const name = row.querySelector('.td-name').textContent.toLowerCase();
+            const gr = row.querySelector('.badge').textContent.toLowerCase();
+            const std = row.querySelector('.td-std').textContent;
+            
+            const divTd = row.querySelector('.td-div');
+            const divSpan = divTd.querySelector('.div-val');
+            const div = divSpan ? `division-${divSpan.textContent.trim()}` : '';
+            
+            const matchesQuery = !query || name.includes(query) || gr.includes(query);
+            const matchesStd = !stdVal || std === stdVal;
+            const matchesDiv = !divVal || div === divVal;
+            
+            if (matchesQuery && matchesStd && matchesDiv) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        document.getElementById('records-count-text').textContent = 
+            `Showing ${visibleCount} of ${rows.length} records.`;
+            
+        // Toggle Manual Assign button check
+        const assignBtn = document.getElementById('assign-unassigned-btn');
+        if (assignBtn) {
+            const highlightedRow = document.querySelector('.student-row.selected-row');
+            if (highlightedRow && highlightedRow.style.display !== 'none') {
+                assignBtn.removeAttribute('disabled');
+            } else {
+                assignBtn.setAttribute('disabled', 'true');
+            }
+        }
+    }
+    
+    function toggleFilterDropdown() {
+        const panel = document.getElementById('filter-dropdown-panel');
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'flex';
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+    
+    // Close filter dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+        const panel = document.getElementById('filter-dropdown-panel');
+        if (!panel) return;
+        const trigger = panel.parentNode; // Filter container
+        if (!trigger) return;
+        if (!panel.contains(event.target) && !trigger.contains(event.target)) {
+            panel.style.display = 'none';
+        }
+    });
+    
+    function resetFilters() {
+        document.getElementById('session-std-filter').value = '';
+        document.getElementById('session-div-filter').value = '';
+        filterSessionTable();
+        document.getElementById('filter-dropdown-panel').style.display = 'none';
+    }
+</script>
+{% endblock %}

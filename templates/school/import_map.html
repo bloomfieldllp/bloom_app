@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Column Mapping - Bloom{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h1 style="margin-top: 0.5rem; font-weight: 800; letter-spacing: -0.03em;">Column Mapping</h1>
+    <p class="subtitle">Map the headers from your uploaded file to the required student database fields.</p>
+</div>
+
+<form action="/school/projects/{{ project._id }}/validate" method="POST">
+    <!-- Hidden inputs to track temp file details -->
+    <input type="hidden" name="temp_file_path" value="{{ temp_file_path }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+
+    <div class="mapping-grid">
+        <!-- Mapping selection card -->
+        <div class="card" style="padding: 1.5rem; margin: 0;">
+            <h3 style="margin-bottom: 1.25rem;">Column Mapping</h3>
+            
+            <table class="mapping-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="padding-left: 0;">Required Field</th>
+                        <th style="padding-right: 0;">Uploaded Column</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding-left: 0; font-weight: 600; vertical-align: middle;">
+                            GR / Register No <span style="color: var(--danger);">*</span>
+                        </td>
+                        <td style="padding-right: 0;">
+                            <select name="gr" class="form-control" required>
+                                <option value="">-- Select Column --</option>
+                                {% for header in headers %}
+                                    <option value="{{ header }}" {% if header.lower() in ['gr', 'gr_no', 'gr no', 'grnumber', 'gr_number', 'register_no', 'reg_no', 'id'] %}selected{% endif %}>
+                                        {{ header }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 0; font-weight: 600; vertical-align: middle;">
+                            Student Name <span style="color: var(--danger);">*</span>
+                        </td>
+                        <td style="padding-right: 0;">
+                            <select name="name" class="form-control" required>
+                                <option value="">-- Select Column --</option>
+                                {% for header in headers %}
+                                    <option value="{{ header }}" {% if header.lower() in ['name', 'student_name', 'student name', 'fullname', 'full_name', 'student'] %}selected{% endif %}>
+                                        {{ header }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 0; font-weight: 600; vertical-align: middle;">
+                            Standard / Grade
+                        </td>
+                        <td style="padding-right: 0;">
+                            <select name="standard" class="form-control">
+                                <option value="">-- Ignore Column --</option>
+                                {% for header in headers %}
+                                    <option value="{{ header }}" {% if header.lower() in ['std', 'standard', 'grade', 'class'] %}selected{% endif %}>
+                                        {{ header }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 0; font-weight: 600; vertical-align: middle;">
+                            Roll Number
+                        </td>
+                        <td style="padding-right: 0;">
+                            <select name="roll_number" class="form-control">
+                                <option value="">-- Ignore Column --</option>
+                                {% for header in headers %}
+                                    <option value="{{ header }}" {% if header.lower() in ['roll', 'roll_no', 'roll no', 'rollnumber', 'roll_number'] %}selected{% endif %}>
+                                        {{ header }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 0; font-weight: 600; vertical-align: middle;">
+                            Division / Section
+                        </td>
+                        <td style="padding-right: 0;">
+                            <select name="division" class="form-control">
+                                <option value="">-- Ignore Column --</option>
+                                {% for header in headers %}
+                                    <option value="{{ header }}" {% if header.lower() in ['div', 'division', 'sec', 'section'] %}selected{% endif %}>
+                                        {{ header }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                <a href="/school/projects/{{ project._id }}/import" class="btn btn-secondary">Back</a>
+                <button type="submit" class="btn btn-primary" style="color: white;">Validate Records</button>
+            </div>
+        </div>
+        
+        <!-- Preview rows card -->
+        <div class="card" style="padding: 1.5rem; margin: 0; overflow-y: auto;">
+            <h3 style="margin-bottom: 1rem;">Data Preview (Top 5 rows)</h3>
+            <div class="table-container" style="max-height: 400px; width: 100%; min-width: 0;">
+                <table class="enhanced-table">
+                    <thead>
+                        <tr>
+                            {% for header in headers %}
+                                <th>{{ header }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in preview_rows %}
+                            <tr>
+                                {% for val in row %}
+                                    <td>{{ val }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

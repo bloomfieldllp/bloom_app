@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Schools Directory - BLOOM ID CARD{% endblock %}
+
+{% block content %}
+<div class="directory-header" style="margin-bottom: 2rem;">
+    <h1 style="font-weight: 800; letter-spacing: -0.03em; margin: 0;">Schools Directory</h1>
+    <p class="subtitle" style="margin-top: 0.25rem;">View and manage all registered schools.</p>
+</div>
+
+<div class="card" style="padding: 1.5rem; width: 100%; min-width: 0;">
+    
+    <!-- Table Toolbar with Embedded Filter Dropdown -->
+    <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; width: 100%;">
+        
+        <!-- Left: Search input + embedded filter icon -->
+        <div style="position: relative; flex: 1; min-width: 250px; max-width: 400px; display: flex; align-items: center;">
+            <input type="text" class="form-control bloom-search-input" placeholder="Search schools..." style="padding-right: 2.75rem; width: 100%;">
+            <button type="button" onclick="toggleFilterDropdown(event)" style="position: absolute; right: 0.5rem; border: none; background: none; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; height: 32px; width: 32px; border-radius: 50%; hover: background-color: var(--border-color); z-index: 10;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-filter"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
+            
+            <!-- Filters Dropdown Panel -->
+            <div id="filterDropdownPopover" class="card" style="display: none; position: absolute; top: 48px; left: 0; z-index: 250; min-width: 280px; padding: 1.25rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05); flex-direction: column; gap: 1rem;">
+                <div style="font-weight: 700; font-size: 0.85rem; text-transform: uppercase; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
+                    Filter Options
+                </div>
+                <form action="/admin/schools/directory" method="GET" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div class="form-group" style="margin: 0;">
+                        <label for="filter_status" style="font-size: 0.8rem; font-weight: 600;">Status</label>
+                        <select id="filter_status" name="status" class="form-control" onchange="this.form.submit()">
+                            <option value="all" {% if status == 'all' %}selected{% endif %}>All Statuses</option>
+                            <option value="prospect" {% if status == 'prospect' %}selected{% endif %}>Prospect</option>
+                            <option value="interested" {% if status == 'interested' %}selected{% endif %}>Interested</option>
+                            <option value="confirmed" {% if status == 'confirmed' %}selected{% endif %}>Confirmed</option>
+                            <option value="scheduled" {% if status == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                            <option value="in_progress" {% if status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                            <option value="completed" {% if status == 'completed' %}selected{% endif %}>Completed</option>
+                            <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                        </select>
+                    </div>
+                    <a href="/admin/schools/directory" class="btn btn-secondary" style="text-align: center; text-decoration: none; padding: 0.5rem; font-size: 0.85rem;">Clear Filters</a>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Right: Actions wrapper for Columns Config button -->
+        <div class="table-actions" style="position: relative;"></div>
+        
+    </div>
+
+    <!-- Enhanced Table Container -->
+    {% if not schools %}
+        <p style="color: var(--text-secondary); text-align: center; padding: 3rem 0;">No matching schools found.</p>
+    {% else %}
+        <div class="table-container" style="width: 100%; min-width: 0;">
+            <table class="enhanced-table">
+                <thead>
+                    <tr>
+                        <th>School Name</th>
+                        <th>School Code</th>
+                        <th>Contact Person</th>
+                        <th>Contact Phone</th>
+                        <th>Contact Email</th>
+                        <th>Location</th>
+                        <th>Pipeline Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in schools %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ s.name }}</td>
+                            <td><code>{{ s.school_code }}</code></td>
+                            <td>{{ s.hm_name }}</td>
+                            <td><code>{{ s.hm_phone }}</code></td>
+                            <td>
+                                {% if s.school_email %}
+                                    {{ s.school_email }}
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-style: italic;">None</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ s.location_link }}" target="_blank" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; min-height: auto; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                    Map
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge {% if s.status in ['confirmed', 'scheduled', 'in_progress'] %}badge-success{% elif s.status == 'completed' %}badge-secondary{% else %}badge-warning{% endif %}">
+                                    {{ (s.status or 'prospect').title() }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleFilterDropdown(e) {
+        e.stopPropagation();
+        const pop = document.getElementById('filterDropdownPopover');
+        const isOpen = pop.style.display === 'flex';
+        pop.style.display = isOpen ? 'none' : 'flex';
+    }
+
+    document.addEventListener('click', () => {
+        const filterPop = document.getElementById('filterDropdownPopover');
+        if (filterPop) filterPop.style.display = 'none';
+    });
+</script>
+{% endblock %}

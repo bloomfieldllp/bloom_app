@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Create Photography Project - BLOOM ID CARD{% endblock %}
+
+{% block content %}
+<div class="login-container" style="min-height: auto; margin-top: 2rem; margin-bottom: 2rem;">
+    <div class="card" style="width: 100%; max-width: 600px; padding: 2rem;">
+        <h2 style="font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.25rem;">Create Photography Project</h2>
+        <p class="subtitle" style="margin-bottom: 1.5rem;">Register a scheduled project cycle for a school.</p>
+        
+        <form action="/admin/projects" method="POST">
+            
+            <div class="form-group">
+                <label for="proj_school">Select School *</label>
+                <select id="proj_school" name="school_id" class="form-control" required>
+                    <option value="">-- Select School --</option>
+                    {% for school in schools %}
+                        <option value="{{ school._id }}">{{ school.name }} ({{ school.school_code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="proj_year">Academic Year *</label>
+                <input type="text" id="proj_year" name="academic_year" class="form-control" placeholder="2026-27" required pattern="^\d{4}-\d{2}$">
+            </div>
+
+            <div class="form-group">
+                <label for="proj_start_date">Photography Start Date *</label>
+                <input type="date" id="proj_start_date" name="photography_start_date" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="proj_operator">Assign Operator *</label>
+                <select id="proj_operator" name="assigned_operator_id" class="form-control" required>
+                    <option value="">-- Select Operator --</option>
+                    {% for op in operators %}
+                        <option value="{{ op._id }}">{{ op.name }} ({{ op.phone }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Create Project</button>
+                <a href="/admin" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;">Cancel</a>
+            </div>
+            
+        </form>
+    </div>
+</div>
+{% endblock %}

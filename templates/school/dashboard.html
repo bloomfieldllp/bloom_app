@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}School Portal Dashboard - Bloom{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h1 style="color: var(--brand-primary); font-weight: 800; letter-spacing: -0.03em; margin: 0;">{{ school.name }}</h1>
+    <p class="subtitle" style="margin-top: 0.25rem;">School Portal Dashboard — Manage student records and track photo capturing progress.</p>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <span class="stat-label">Students Registered</span>
+        <span class="stat-value">{{ stats.total_students }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Photographed</span>
+        <span class="stat-value" style="color: var(--success);">{{ stats.photographed_students }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Pending Capture</span>
+        <span class="stat-value" style="color: var(--warning);">{{ stats.pending_students }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Total Projects</span>
+        <span class="stat-value">{{ stats.projects_count }}</span>
+    </div>
+</div>
+
+<!-- Projects list -->
+<div class="card" style="padding: 1.5rem; width: 100%; min-width: 0;">
+    <div class="card-header" style="margin-bottom: 1rem;">
+        <h2 style="margin: 0; font-weight: 700;">Photography Projects</h2>
+    </div>
+    
+    {% if not projects %}
+        <p style="color: var(--text-secondary); text-align: center; padding: 2rem 0;">No projects initialized yet. Please contact Bloom Admin to create one.</p>
+    {% else %}
+        <div class="table-container" style="width: 100%; min-width: 0;">
+            <table class="enhanced-table">
+                <thead>
+                    <tr>
+                        <th>Project Name</th>
+                        <th>Academic Year</th>
+                        <th>Total Students</th>
+                        <th>Photographed</th>
+                        <th>Pending</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for project in projects %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ project.name }}</td>
+                            <td><code class="badge badge-secondary" style="font-size: 0.85rem;">{{ project.academic_year }}</code></td>
+                            <td>{{ project.total_students }}</td>
+                            <td><span style="color: var(--success); font-weight: 600;">{{ project.photographed_students }}</span></td>
+                            <td><span style="color: var(--warning); font-weight: 600;">{{ project.pending_students }}</span></td>
+                            <td>
+                                <span class="badge {% if project.status == 'active' or project.status == 'scheduled' or project.status == 'confirmed' %}badge-success{% else %}badge-danger{% endif %}">
+                                    {{ project.status.title() }}
+                                </span>
+                            </td>
+                            <td>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <a href="/school/projects/{{ project._id }}/students" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
+                                        View Students
+                                    </a>
+                                    <a href="/school/projects/{{ project._id }}/import" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem; color: white;">
+                                        Upload Student Data
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

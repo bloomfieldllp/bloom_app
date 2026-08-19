@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Student Data - Bloom{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <a href="/school" style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">← Back to Dashboard</a>
+    <h1 style="margin-top: 0.5rem;">Upload Student Data</h1>
+    <p class="subtitle">Upload a spreadsheet (CSV or Excel) containing student records for project: <strong>{{ project.name }}</strong>.</p>
+</div>
+
+<div style="max-width: 600px; margin: 0 auto;">
+    {% if error %}
+        <div class="alert alert-danger">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <div class="card" style="padding: 2rem;">
+        <h3 style="margin-bottom: 1rem;">Select spreadsheet file</h3>
+        <form action="/school/projects/{{ project._id }}/preview" method="POST" enctype="multipart/form-data" id="upload-form">
+            <div class="form-group" style="border: 2px dashed var(--border-color); padding: 2rem; border-radius: 0.5rem; text-align: center; cursor: pointer; transition: border-color 0.2s;" id="dropzone">
+                <input type="file" id="files" name="files" accept=".csv, .xlsx, .xls" style="display: none;" required multiple onchange="updateFileLabel()">
+                <label for="files" style="cursor: pointer; display: block;">
+                    <div style="font-size: 2rem; color: var(--text-secondary); margin-bottom: 0.5rem;">📁</div>
+                    <span id="file-label" style="font-weight: 600; color: var(--brand-primary);">Click to browse files</span>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">Supports multiple CSV, XLSX, XLS formats (upload class-wise or combined)</p>
+                </label>
+            </div>
+            
+            <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                <a href="/school" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary" style="color: white;">Upload & Preview</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="card" style="padding: 1.5rem; margin-top: 1.5rem; background-color: var(--bg-primary);">
+        <h4 style="margin-bottom: 0.5rem;">Required Fields Guidelines</h4>
+        <ul style="font-size: 0.9rem; color: var(--text-secondary); margin-left: 1.25rem;">
+            <li style="margin-bottom: 0.25rem;"><strong>GR</strong>: General Register Number (Unique identifier per student).</li>
+            <li style="margin-bottom: 0.25rem;"><strong>Name</strong>: Student's full name.</li>
+            <li style="margin-bottom: 0.25rem;"><strong>Standard</strong>: Grade/Class (e.g. 1, 2, 8, 10).</li>
+            <li style="margin-bottom: 0.25rem;"><strong>Roll Number</strong> & <strong>Division</strong> are optional but recommended.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateFileLabel() {
+        var fileInput = document.getElementById('files');
+        var fileLabel = document.getElementById('file-label');
+        if (fileInput.files.length > 0) {
+            if (fileInput.files.length === 1) {
+                fileLabel.textContent = "Selected: " + fileInput.files[0].name;
+            } else {
+                fileLabel.textContent = fileInput.files.length + " files selected";
+            }
+            fileLabel.style.color = "var(--success)";
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Project - BLOOM ID CARD{% endblock %}
+
+{% block content %}
+<div class="login-container" style="min-height: auto; margin-top: 2rem; margin-bottom: 2rem;">
+    <div class="card" style="width: 100%; max-width: 600px; padding: 2rem;">
+        <h2 style="font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.25rem;">Edit Photography Project</h2>
+        <p class="subtitle" style="margin-bottom: 1.5rem;">Update the scheduled photography status and details.</p>
+        
+        <form action="/admin/projects/{{ project._id }}/edit" method="POST">
+            
+            <div class="form-group">
+                <label>Linked School (Read-Only)</label>
+                <input type="text" class="form-control" value="{{ project.school_name }}" readonly style="background-color: var(--border-color); cursor: not-allowed;">
+            </div>
+
+            <div class="form-group">
+                <label>Project ID (Read-Only)</label>
+                <input type="text" class="form-control" value="{{ project.project_id }}" readonly style="background-color: var(--border-color); cursor: not-allowed;">
+            </div>
+
+            <div class="form-group">
+                <label for="academic_year">Academic Year *</label>
+                <input type="text" id="academic_year" name="academic_year" class="form-control" value="{{ project.academic_year }}" required pattern="^\d{4}-\d{2}$" placeholder="2026-27">
+            </div>
+
+            <div class="form-group">
+                <label for="photography_start_date">Photography Start Date (Optional)</label>
+                <input type="date" id="photography_start_date" name="photography_start_date" class="form-control" value="{{ start_date_str }}">
+                <span style="font-size: 0.8rem; color: var(--text-secondary);">Setting a start date will automatically classify the project as <strong>Scheduled</strong>.</span>
+            </div>
+
+            <div class="form-group">
+                <label for="assigned_operator_id">Assign Operator (Optional)</label>
+                <select id="assigned_operator_id" name="assigned_operator_id" class="form-control">
+                    <option value="">-- Select Operator --</option>
+                    {% for op in operators %}
+                        <option value="{{ op._id }}" {% if project.assigned_operator_id == op._id %}selected{% endif %}>{{ op.name }} ({{ op.phone }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="status">Project Status *</label>
+                <select id="status" name="status" class="form-control" required>
+                    <option value="prospect" {% if project.status == 'prospect' %}selected{% endif %}>Prospect</option>
+                    <option value="interested" {% if project.status == 'interested' %}selected{% endif %}>Interested</option>
+                    <option value="confirmed" {% if project.status == 'confirmed' %}selected{% endif %}>Confirmed</option>
+                    <option value="scheduled" {% if project.status == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                    <option value="in_progress" {% if project.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                    <option value="completed" {% if project.status == 'completed' %}selected{% endif %}>Completed</option>
+                    <option value="cancelled" {% if project.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Save Changes</button>
+                <a href="/admin" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;">Cancel</a>
+            </div>
+            
+        </form>
+    </div>
+</div>
+{% endblock %}

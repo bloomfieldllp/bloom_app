@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+ENV/
+env/
+
+# PyInstaller
+#  Location of compiled binaries
+dist/
+build/
+*.spec
+
+# IDEs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# App databases / logs
+*.log
+local_photos/
+tmp/

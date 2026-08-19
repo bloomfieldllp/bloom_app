@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Students Directory - Bloom{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <a href="/school" style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">← Back to Dashboard</a>
+    <h1 style="margin-top: 0.5rem; font-weight: 800; letter-spacing: -0.03em; margin: 0.5rem 0 0 0;">Students Directory</h1>
+    <p class="subtitle" style="margin-top: 0.25rem;">Project: <strong>{{ project.name }}</strong> ({{ project.academic_year }})</p>
+</div>
+
+{% if msg %}
+    <div class="alert alert-success" style="margin-bottom: 1.5rem;">
+        {{ msg }}
+    </div>
+{% endif %}
+
+<!-- Table Container loaded with student table partial -->
+<div id="student-table-container">
+    {% include "school/student_table_partial.html" %}
+</div>
+{% endblock %}

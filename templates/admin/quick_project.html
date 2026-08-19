@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Quick Project Update - BLOOM ID CARD{% endblock %}
+
+{% block content %}
+<div class="login-container" style="min-height: auto; margin-top: 2rem; margin-bottom: 2rem;">
+    <div class="card" style="width: 100%; max-width: 600px; padding: 2rem;">
+        <h2 style="font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.25rem;">Quick Project Update</h2>
+        <p class="subtitle" style="margin-bottom: 1.5rem;">Rapidly log a conversation or status update with a school.</p>
+        
+        <form action="/admin/projects/quick-update" method="POST">
+            
+            <!-- School Select Dropdown -->
+            <div class="form-group">
+                <label for="school_id">School *</label>
+                <select id="school_id" name="school_id" class="form-control" required>
+                    <option value="">-- Select School --</option>
+                    {% for school in schools %}
+                        <option value="{{ school._id }}">{{ school.name }} ({{ school.school_code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Pipeline Status Selection -->
+            <div class="form-group">
+                <label for="status">Pipeline Status *</label>
+                <select id="status" name="status" class="form-control" required>
+                    <option value="prospect">Prospect</option>
+                    <option value="interested">Interested</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Not Interested</option>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Update Project</button>
+                <a href="/admin" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;">Cancel</a>
+            </div>
+            
+        </form>
+    </div>
+</div>
+{% endblock %}

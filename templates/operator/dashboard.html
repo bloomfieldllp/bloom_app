@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Operator Dashboard - BLOOM ID CARD{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h1 style="font-weight: 800; letter-spacing: -0.03em; margin: 0; color: var(--brand-primary);">Bloom Operator Dashboard</h1>
+    <p class="subtitle" style="margin-top: 0.25rem;">Operator: <strong>{{ user.name }}</strong> ({{ user.phone }})</p>
+</div>
+
+{% if msg %}
+    <div class="alert alert-success" style="margin-bottom: 1.5rem;">
+        {{ msg }}
+    </div>
+{% endif %}
+
+<!-- Active Assignments Section -->
+<h2 style="margin-top: 2rem; margin-bottom: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m12 6 4 4-4 4"/><path d="M8 10h8"/></svg>
+    Active Assignments
+</h2>
+<div class="card" style="padding: 1.5rem; width: 100%; min-width: 0; margin-bottom: 3rem;">
+    {% if not active_schools %}
+        <p style="color: var(--text-secondary); text-align: center; padding: 3rem 0;">No active photography assignments found.</p>
+    {% else %}
+        <div class="table-container" style="width: 100%; min-width: 0;">
+            <table class="enhanced-table">
+                <thead>
+                    <tr>
+                        <th>School Name</th>
+                        <th>Project ID</th>
+                        <th>Academic Year</th>
+                        <th>Start Date</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for school in active_schools %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ school.name }}</td>
+                            <td><code>{{ school.project_id }}</code></td>
+                            <td>{{ school.academic_year }}</td>
+                            <td>
+                                {% if school.photography_start_date %}
+                                    {{ school.photography_start_date.strftime('%Y-%m-%d') }}
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-style: italic;">Not Set</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ school.location_link }}" target="_blank" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem; min-height: auto; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                    Map
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge {% if school.project_status in ['confirmed', 'scheduled', 'in_progress'] %}badge-success{% else %}badge-warning{% endif %}">
+                                    {{ (school.project_status or 'prospect').title().replace('_', ' ') }}
+                                </span>
+                            </td>
+                            <td style="text-align: right;">
+                                <form action="/operator/projects/{{ school.project_id_raw }}/session/start" method="POST" style="margin: 0; display: inline-block;">
+                                    <button type="submit" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem; color: white; font-weight: 700;">
+                                        {% if school.project_status == 'in_progress' %}Resume Session{% else %}Start Session{% endif %}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Completed History Section -->
+<h2 style="margin-top: 2rem; margin-bottom: 1rem; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 0.5rem;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+    Assignment History (Completed)
+</h2>
+<div class="card" style="padding: 1.5rem; width: 100%; min-width: 0; background-color: #fafbfc; border-color: #e4e8ec;">
+    {% if not completed_schools %}
+        <p style="color: var(--text-secondary); text-align: center; padding: 3rem 0;">No completed assignments found.</p>
+    {% else %}
+        <div class="table-container" style="width: 100%; min-width: 0;">
+            <table class="enhanced-table">
+                <thead>
+                    <tr>
+                        <th style="color: var(--text-secondary);">School Name</th>
+                        <th style="color: var(--text-secondary);">Project ID</th>
+                        <th style="color: var(--text-secondary);">Academic Year</th>
+                        <th style="color: var(--text-secondary);">Start Date</th>
+                        <th style="color: var(--text-secondary);">Location</th>
+                        <th style="color: var(--text-secondary);">Status</th>
+                        <th style="color: var(--text-secondary); text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for school in completed_schools %}
+                        <tr style="opacity: 0.85;">
+                            <td style="font-weight: 600; color: var(--text-primary);">{{ school.name }}</td>
+                            <td><code>{{ school.project_id }}</code></td>
+                            <td>{{ school.academic_year }}</td>
+                            <td>
+                                {% if school.photography_start_date %}
+                                    {{ school.photography_start_date.strftime('%Y-%m-%d') }}
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-style: italic;">Not Set</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ school.location_link }}" target="_blank" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem; min-height: auto; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                    Map
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge badge-secondary">Completed</span>
+                            </td>
+                            <td style="text-align: right;">
+                                <a href="/operator/projects/{{ school.project_id_raw }}/session" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem; min-height: auto; text-decoration: none; display: inline-flex; align-items: center; font-weight: 600;">
+                                    View Session
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
