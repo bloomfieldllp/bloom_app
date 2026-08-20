@@ -118,15 +118,29 @@ class StudentImportService:
         duplicate_gr_in_db = set()
         seen_grs_in_file = {}
         
+        def clean_val(val) -> str:
+            if pd.isna(val) or val is None:
+                return ""
+            if isinstance(val, (int, float)) and not isinstance(val, bool):
+                if isinstance(val, float) and val.is_integer():
+                    return str(int(val))
+                elif isinstance(val, float):
+                    return str(int(val))
+                return str(int(val))
+            val_str = str(val).strip()
+            if val_str.endswith(".0"):
+                return val_str[:-2]
+            return val_str
+
         for idx, row in df.iterrows():
             row_dict = row.to_dict()
             
-            # Fetch target values
-            gr_val = str(row_dict.get(gr_col)).strip() if gr_col in row_dict and not pd.isna(row_dict.get(gr_col)) else ""
-            name_val = str(row_dict.get(name_col)).strip() if name_col in row_dict and not pd.isna(row_dict.get(name_col)) else ""
-            std_val = str(row_dict.get(std_col)).strip() if std_col and std_col in row_dict and not pd.isna(row_dict.get(std_col)) else ""
-            roll_val = str(row_dict.get(roll_col)).strip() if roll_col and roll_col in row_dict and not pd.isna(row_dict.get(roll_col)) else ""
-            div_val = str(row_dict.get(div_col)).strip() if div_col and div_col in row_dict and not pd.isna(row_dict.get(div_col)) else ""
+            # Fetch target values using clean_val to strip .0 decimal suffixes
+            gr_val = clean_val(row_dict.get(gr_col))
+            name_val = clean_val(row_dict.get(name_col))
+            std_val = clean_val(row_dict.get(std_col)) if std_col else ""
+            roll_val = clean_val(row_dict.get(roll_col)) if roll_col else ""
+            div_val = clean_val(row_dict.get(div_col)) if div_col else ""
             
             # Row raw data should preserve original keys and clean up nan values
             raw_data = {k: (v if not pd.isna(v) else "") for k, v in row_dict.items()}
