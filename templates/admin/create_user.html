@@ -8,28 +8,44 @@
         <h2 style="font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.25rem;">Create User</h2>
         <p class="subtitle" style="margin-bottom: 1.5rem;">Register a new school admin or operator.</p>
         
+        {% if error %}
+        <div class="error-message" style="display: block; margin-bottom: 1rem;">
+            {{ error }}
+        </div>
+        {% endif %}
+
         <form action="/admin/users" method="POST">
             
             <div class="form-group">
                 <label for="name">Name *</label>
-                <input type="text" id="name" name="name" class="form-control" placeholder="Name" required>
+                <input type="text" id="name" name="name" class="form-control" placeholder="Name" required value="{{ name or '' }}">
             </div>
 
             <div class="form-group">
                 <label for="phone">Phone Number *</label>
-                <input type="tel" id="phone" name="phone" class="form-control" placeholder="9876543210" required>
+                <input type="tel" id="phone" name="phone" class="form-control" placeholder="9876543210" required value="{{ phone or '' }}">
+                {% if error_phone %}
+                <div id="phone-error" class="invalid-feedback" style="color: var(--danger); font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ error_phone }}
+                </div>
+                {% endif %}
             </div>
 
             <div class="form-group">
                 <label for="email">Email Address (Optional)</label>
-                <input type="email" id="email" name="email" class="form-control" placeholder="user@gmail.com">
+                <input type="email" id="email" name="email" class="form-control" placeholder="user@gmail.com" value="{{ email or '' }}">
+                {% if error_email %}
+                <div id="email-error" class="invalid-feedback" style="color: var(--danger); font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ error_email }}
+                </div>
+                {% endif %}
             </div>
 
             <div class="form-group">
                 <label for="user_type">User Type *</label>
                 <select id="user_type" name="user_type" class="form-control" required onchange="toggleSchoolField(this.value)">
-                    <option value="school_user">School Admin / Staff</option>
-                    <option value="operator">Photography Operator</option>
+                    <option value="school_user" {% if user_type == 'school_user' %}selected{% endif %}>School Admin / Staff</option>
+                    <option value="operator" {% if user_type == 'operator' %}selected{% endif %}>Photography Operator</option>
                 </select>
             </div>
 
@@ -38,7 +54,7 @@
                 <select id="user_school" name="school_id" class="form-control">
                     <option value="">-- Select School --</option>
                     {% for school in schools %}
-                        <option value="{{ school._id }}">{{ school.name }} ({{ school.school_code }})</option>
+                        <option value="{{ school._id }}" {% if school_id == school._id|string %}selected{% endif %}>{{ school.name }} ({{ school.school_code }})</option>
                     {% endfor %}
                 </select>
             </div>
@@ -75,9 +91,47 @@
             select.setAttribute("required", "required");
         }
     }
+
+    function togglePasswordVisibility(fieldId) {
+        const input = document.getElementById(fieldId);
+        const wrapper = input.closest('.password-wrapper');
+        const eye = wrapper.querySelector('.lucide-eye');
+        const eyeOff = wrapper.querySelector('.lucide-eye-off');
+        if (input.type === 'password') {
+            input.type = 'text';
+            eye.style.display = 'none';
+            eyeOff.style.display = 'block';
+        } else {
+            input.type = 'password';
+            eye.style.display = 'block';
+            eyeOff.style.display = 'none';
+        }
+    }
+
     // Run initially
     document.addEventListener("DOMContentLoaded", () => {
         toggleSchoolField(document.getElementById("user_type").value);
+        
+        // Add event listeners to automatically hide field validation errors on user input
+        const phoneInput = document.getElementById('phone');
+        if (phoneInput) {
+            phoneInput.addEventListener('input', () => {
+                const phoneError = document.getElementById('phone-error');
+                if (phoneError) {
+                    phoneError.style.display = 'none';
+                }
+            });
+        }
+
+        const emailInput = document.getElementById('email');
+        if (emailInput) {
+            emailInput.addEventListener('input', () => {
+                const emailError = document.getElementById('email-error');
+                if (emailError) {
+                    emailError.style.display = 'none';
+                }
+            });
+        }
     });
 </script>
 {% endblock %}

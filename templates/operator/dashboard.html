@@ -8,6 +8,24 @@
     <p class="subtitle" style="margin-top: 0.25rem;">Operator: <strong>{{ user.name }}</strong> ({{ user.phone }})</p>
 </div>
 
+<!-- Sync Panel Card -->
+<div class="card" id="sync-card" style="padding: 1.25rem; margin-bottom: 2rem; border-left: 5px solid #2563eb; width: 100%; box-sizing: border-box;">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+        <div>
+            <h3 style="margin: 0; font-weight: 800; font-size: 1.1rem; color: var(--text-primary);">Synchronization Panel</h3>
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+                Status: <strong id="sync-status-text" style="text-transform: uppercase;">Checking...</strong>
+                | <span id="sync-desc">Loading sync status details...</span>
+            </p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button id="sync-now-btn" type="button" class="btn btn-secondary" onclick="triggerSync()" style="font-weight: 700; font-size: 0.85rem; padding: 0.5rem 1rem; min-height: auto;">
+                Sync Now
+            </button>
+        </div>
+    </div>
+</div>
+
 {% if msg %}
     <div class="alert alert-success" style="margin-bottom: 1.5rem;">
         {{ msg }}
@@ -131,4 +149,114 @@
         </div>
     {% endif %}
 </div>
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        pollSyncStatus();
+        setInterval(pollSyncStatus, 3000);
+    });
+
+    let isSyncRequestPending = false;
+
+    async function pollSyncStatus() {
+        if (isSyncRequestPending) return;
+        isSyncRequestPending = true;
+        try {
+            const res = await fetch("/operator/sync/status");
+            if (res.status === 200) {
+                const data = await res.json();
+                updateSyncUI(data);
+            }
+        } catch (err) {
+            console.error("Failed to poll sync status", err);
+        } finally {
+            isSyncRequestPending = false;
+        }
+    }
+
+    function updateSyncUI(data) {
+        const statusText = document.getElementById("sync-status-text");
+        const syncCard = document.getElementById("sync-card");
+        const syncDesc = document.getElementById("sync-desc");
+        const syncBtn = document.getElementById("sync-now-btn");
+
+        if (!statusText || !syncCard || !syncDesc || !syncBtn) return;
+
+        // Reset default states
+        syncCard.style.borderLeftColor = "#2563eb";
+        syncBtn.removeAttribute("disabled");
+        syncBtn.textContent = "Sync Now";
+
+        let statusLabel = data.state;
+        let desc = "";
+
+        if (data.state === "IDLE") {
+            statusLabel = "Online";
+            desc = "Ready. All operations synced.";
+            if (data.last_successful_sync) {
+                desc += ` Last synced: ${formatDate(data.last_successful_sync)}`;
+            }
+            syncCard.style.borderLeftColor = "#10b981";
+        } else if (data.state === "SYNCED") {
+            statusLabel = "Online";
+            desc = "All changes successfully pushed and pulled.";
+            if (data.last_successful_sync) {
+                desc += ` Last synced: ${formatDate(data.last_successful_sync)}`;
+            }
+            syncCard.style.borderLeftColor = "#10b981";
+        } else if (data.state === "CONNECTING") {
+            statusLabel = "Connecting...";
+            desc = "Contacting remote server...";
+            syncBtn.setAttribute("disabled", "true");
+            syncBtn.textContent = "Syncing...";
+        } else if (data.state === "UPLOADING") {
+            statusLabel = "Syncing...";
+            desc = `Uploading ${data.pending_uploads} pending change(s)...`;
+            syncBtn.setAttribute("disabled", "true");
+            syncBtn.textContent = "Uploading...";
+        } else if (data.state === "DOWNLOADING") {
+            statusLabel = "Syncing...";
+            desc = "Downloading remote updates...";
+            syncBtn.setAttribute("disabled", "true");
+            syncBtn.textContent = "Downloading...";
+        } else if (data.state === "RETRYING" || data.state === "ERROR") {
+            statusLabel = "Offline / Sync Error";
+            desc = `Sync deferred. ${data.pending_uploads} change(s) pending.`;
+            if (data.last_error) {
+                desc += ` (${data.last_error})`;
+            }
+            syncCard.style.borderLeftColor = "#ef4444";
+        }
+
+        statusText.textContent = statusLabel;
+        syncDesc.textContent = desc;
+    }
+
+    async function triggerSync() {
+        const syncBtn = document.getElementById("sync-now-btn");
+        if (syncBtn) {
+            syncBtn.setAttribute("disabled", "true");
+            syncBtn.textContent = "Triggering...";
+        }
+        try {
+            await fetch("/operator/sync/trigger", { method: "POST" });
+            pollSyncStatus();
+        } catch (err) {
+            console.error("Failed to trigger sync", err);
+        }
+    }
+
+    function formatDate(isoStr) {
+        if (!isoStr) return "—";
+        try {
+            const date = new Date(isoStr);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        } catch (e) {
+            return isoStr;
+        }
+    }
+</script>
+{% endblock %}
+
 {% endblock %}

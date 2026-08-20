@@ -216,3 +216,46 @@ def test_dashboard_metrics(client, mock_db):
     assert len(schools) == 3
     assert active_schools_count == 1
     assert pending_schools_count == 1
+
+
+# --- User Creation Duplicate Phone Validation Tests ---
+
+def test_create_user_duplicate_phone_validation(client, mock_db):
+    # 1. Login as default super admin
+    login_resp = client.post("/login", data={
+        "username": "9426407970",
+        "password": "Swami@2003"
+    }, follow_redirects=False)
+    assert login_resp.status_code == 303
+    
+    # 2. First create a unique user successfully
+    form_data = {
+        "name": "Unique Test User",
+        "phone": "9898980001",
+        "email": "unique@test.com",
+        "user_type": "operator",
+        "password": "password123"
+    }
+    create_resp = client.post("/admin/users", data=form_data, follow_redirects=False)
+    assert create_resp.status_code == 303
+    assert create_resp.headers["Location"] == "/admin/users/directory"
+    
+    # 3. Try to create another user with the SAME phone number
+    duplicate_form_data = {
+        "name": "Duplicate Test User",
+        "phone": "9898980001", # same phone!
+        "email": "duplicate@test.com",
+        "user_type": "operator",
+        "password": "password456"
+    }
+    dup_resp = client.post("/admin/users", data=duplicate_form_data, follow_redirects=False)
+    
+    # Assert that it did NOT throw 400 or raise raw JSON, but rendered 200 (Create User page) instead
+    assert dup_resp.status_code == 200
+    assert "A user with this number already exists." in dup_resp.text
+    
+    # Check that name and email field values are preserved in the HTML response
+    assert "value=\"Duplicate Test User\"" in dup_resp.text
+    assert "value=\"duplicate@test.com\"" in dup_resp.text
+    assert "value=\"9898980001\"" in dup_resp.text
+

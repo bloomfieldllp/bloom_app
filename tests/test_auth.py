@@ -59,19 +59,19 @@ def test_login_routes_with_username(client, mock_db):
     # Test GET login page contains username label and script
     resp = client.get("/login")
     assert resp.status_code == 200
-    assert "Email or Phone Number" in resp.text
-    assert "togglePasswordVisibility" in resp.text
-    assert "lucide-eye" in resp.text
+    assert "Phone number or Email" in resp.text
+    assert "togglePassword" in resp.text
+    assert "eyeIconVisible" in resp.text
 
     # Test POST login using phone number
     resp_phone = client.post("/login", data={"username": "9999988888", "password": "schoolpassword"}, follow_redirects=False)
     assert resp_phone.status_code == 303
-    assert resp_phone.headers["Location"] == "/school"
+    assert resp_phone.headers["Location"] == "/loader"
 
     # Test POST login using email address
     resp_email = client.post("/login", data={"username": "school@test.com", "password": "schoolpassword"}, follow_redirects=False)
     assert resp_email.status_code == 303
-    assert resp_email.headers["Location"] == "/school"
+    assert resp_email.headers["Location"] == "/loader"
 
 def test_role_based_permissions(client, mock_db):
     # Create school admin

@@ -112,7 +112,14 @@
             <div>
                 <a href="/operator" style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">← Back to Dashboard</a>
                 <h1 style="margin-top: 0.25rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0;">Photography Session</h1>
-                <p class="subtitle" style="margin: 0;">School: <strong>{{ school.name }}</strong></p>
+                <p class="subtitle" style="margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    School: <strong>{{ school.name }}</strong>
+                    <span style="font-size: 0.8rem; padding: 2px 8px; border-radius: 9999px; background: var(--bg-hover); border: 1px solid var(--border-color); display: inline-flex; align-items: center; gap: 4px;" id="session-sync-badge">
+                        <span style="width: 6px; height: 6px; border-radius: 50%; background: #2563eb;" id="session-sync-dot"></span>
+                        <span id="session-sync-text">Sync: Checking...</span>
+                    </span>
+                    <button type="button" class="btn btn-secondary" onclick="triggerSync()" style="font-size: 0.75rem; padding: 2px 8px; min-height: auto; height: auto;" id="session-sync-btn">Sync</button>
+                </p>
             </div>
             
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -333,7 +340,9 @@
     document.addEventListener('DOMContentLoaded', () => {
         // Run poll immediately and configure timer
         pollSessionStatus();
-        setInterval(pollSessionStatus, 1000);
+        setInterval(pollSessionStatus, 3000);
+        pollSyncStatus();
+        setInterval(pollSyncStatus, 3000);
     });
     
     // Save Configured folder paths
@@ -363,19 +372,66 @@
     
     function updateStorageIndicator(status) {
         const ind = document.getElementById('storage-status-indicator');
-        if (status === 'connected') {
+        if (status === 'RUNNING' || status === 'connected') {
             ind.innerHTML = `<span class="storage-dot storage-dot-connected"></span><span>Connected</span>`;
+        } else if (status === 'STARTING' || status === 'RESTARTING' || status === 'STOPPING') {
+            ind.innerHTML = `<span class="storage-dot" style="background-color: var(--warning);"></span><span style="color: var(--warning); font-weight: 600;">${status}</span>`;
+        } else if (status === 'UNHEALTHY') {
+            ind.innerHTML = `<span class="storage-dot" style="background-color: #f97316;"></span><span style="color: #f97316; font-weight: 600;">Unhealthy</span>`;
+        } else if (status === 'ERROR') {
+            ind.innerHTML = `<span class="storage-dot storage-dot-unavailable"></span><span style="color: var(--danger); font-weight: 600;">Watcher Error</span>`;
         } else {
-            ind.innerHTML = `<span class="storage-dot storage-dot-unavailable"></span><span style="color: var(--danger);">Unavailable</span>`;
+            ind.innerHTML = `<span class="storage-dot" style="background-color: #9ca3af;"></span><span style="color: #6b7280;">Disconnected</span>`;
         }
     }
     
+    async function fetchWithTimeout(resource, options = {}) {
+        const { timeout = 5000 } = options;
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        try {
+            const response = await fetch(resource, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(id);
+            return response;
+        } catch (error) {
+            clearTimeout(id);
+            throw error;
+        }
+    }
+
+    let lastPollVersion = 0;
+    let isPollPending = false;
+
     // Poll operator status data
     async function pollSessionStatus() {
+        if (isPollPending) return;
+        isPollPending = true;
         try {
-            const res = await fetch(`/operator/projects/${projectId}/session/status`);
-            if (res.status !== 200) return;
+            const res = await fetchWithTimeout(`/operator/projects/${projectId}/session/status?since=${lastPollVersion}`, {
+                timeout: 5000
+            });
+            if (res.status !== 200) {
+                isPollPending = false;
+                return;
+            }
             const data = await res.json();
+            
+            // Skip updates if server reports no changes
+            if (data.no_changes) {
+                updateStorageIndicator(data.watcher_status);
+                if (data.version) {
+                    lastPollVersion = data.version;
+                }
+                isPollPending = false;
+                return;
+            }
+            
+            if (data.version) {
+                lastPollVersion = data.version;
+            }
             
             // 1. Update Storage Dot
             updateStorageIndicator(data.watcher_status);
@@ -394,12 +450,17 @@
             
         } catch(err) {
             console.error('Session Polling Error:', err);
+        } finally {
+            isPollPending = false;
         }
     }
     
     function renderActiveStudent(stu) {
         const panel = document.getElementById('active-student-panel');
         const placeholder = document.getElementById('no-active-student-card');
+        
+        // Clear previous selected student row highlights
+        document.querySelectorAll('.student-row').forEach(row => row.classList.remove('selected-row'));
         
         if (!stu) {
             activeStudentId = null;
@@ -411,6 +472,10 @@
         activeStudentId = stu.id;
         placeholder.style.display = 'none';
         panel.style.display = 'flex';
+        
+        // Highlight active student row
+        const row = document.getElementById(`row-${stu.id}`);
+        if (row) row.classList.add('selected-row');
         
         document.getElementById('active-name').textContent = stu.name;
         document.getElementById('active-meta').textContent = `GR: ${stu.gr} | Class: ${stu.standard} | Roll: ${stu.roll_number || '-'}`;
@@ -554,9 +619,10 @@
         formData.append('student_id', studentId);
         
         try {
-            await fetch(`/operator/projects/${projectId}/session/select`, {
+            await fetchWithTimeout(`/operator/projects/${projectId}/session/select`, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                timeout: 5000
             });
             pollSessionStatus();
         } catch(err) {
@@ -584,9 +650,10 @@
         formData.append('student_id', studentId);
         
         try {
-            const res = await fetch(`/operator/projects/${projectId}/session/retake`, {
+            const res = await fetchWithTimeout(`/operator/projects/${projectId}/session/retake`, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                timeout: 5000
             });
             const data = await res.json();
             if (data.status === 'success') {
@@ -745,6 +812,78 @@
         document.getElementById('session-div-filter').value = '';
         filterSessionTable();
         document.getElementById('filter-dropdown-panel').style.display = 'none';
+    }
+
+    let isSyncRequestPending = false;
+
+    async function pollSyncStatus() {
+        if (isSyncRequestPending) return;
+        isSyncRequestPending = true;
+        try {
+            const res = await fetch("/operator/sync/status");
+            if (res.status === 200) {
+                const data = await res.json();
+                updateSyncUI(data);
+            }
+        } catch (err) {
+            console.error("Failed to poll sync status", err);
+        } finally {
+            isSyncRequestPending = false;
+        }
+    }
+
+    function updateSyncUI(data) {
+        const dot = document.getElementById("session-sync-dot");
+        const text = document.getElementById("session-sync-text");
+        const btn = document.getElementById("session-sync-btn");
+
+        if (!dot || !text || !btn) return;
+
+        // Reset default states
+        dot.style.background = "#2563eb";
+        btn.removeAttribute("disabled");
+        btn.textContent = "Sync";
+
+        let statusLabel = data.state;
+
+        if (data.state === "IDLE") {
+            statusLabel = "Sync: Online";
+            dot.style.background = "#10b981";
+        } else if (data.state === "SYNCED") {
+            statusLabel = "Sync: Synced";
+            dot.style.background = "#10b981";
+        } else if (data.state === "CONNECTING") {
+            statusLabel = "Sync: Connecting...";
+            btn.setAttribute("disabled", "true");
+            btn.textContent = "Connecting";
+        } else if (data.state === "UPLOADING") {
+            statusLabel = `Sync: Uploading (${data.pending_uploads})...`;
+            btn.setAttribute("disabled", "true");
+            btn.textContent = "Uploading";
+        } else if (data.state === "DOWNLOADING") {
+            statusLabel = "Sync: Downloading...";
+            btn.setAttribute("disabled", "true");
+            btn.textContent = "Downloading";
+        } else if (data.state === "RETRYING" || data.state === "ERROR") {
+            statusLabel = `Sync: Offline (${data.pending_uploads} pending)`;
+            dot.style.background = "#ef4444";
+        }
+
+        text.textContent = statusLabel;
+    }
+
+    async function triggerSync() {
+        const btn = document.getElementById("session-sync-btn");
+        if (btn) {
+            btn.setAttribute("disabled", "true");
+            btn.textContent = "Syncing";
+        }
+        try {
+            await fetch("/operator/sync/trigger", { method: "POST" });
+            pollSyncStatus();
+        } catch (err) {
+            console.error("Failed to trigger sync", err);
+        }
     }
 </script>
 {% endblock %}

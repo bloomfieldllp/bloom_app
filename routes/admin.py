@@ -104,7 +104,39 @@ async def create_user(
         })
         return RedirectResponse(url="/admin/users/directory", status_code=303)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        err_msg = str(e)
+        schools = SchoolService.list_schools()
+        error_phone = None
+        error_email = None
+        error_password = None
+        general_error = None
+        
+        if "Phone number" in err_msg or "number" in err_msg.lower():
+            error_phone = "A user with this number already exists."
+        elif "Email" in err_msg or "email" in err_msg.lower():
+            error_email = err_msg
+        elif "Password" in err_msg or "password" in err_msg.lower():
+            error_password = err_msg
+        else:
+            general_error = err_msg
+            
+        return templates.TemplateResponse(
+            request=request,
+            name="admin/create_user.html",
+            context={
+                "user": user,
+                "schools": schools,
+                "error": general_error,
+                "error_phone": error_phone,
+                "error_email": error_email,
+                "error_password": error_password,
+                "name": name,
+                "phone": phone,
+                "email": email,
+                "user_type": user_type,
+                "school_id": school_id
+            }
+        )
 
 @router.post("/projects")
 async def create_project(

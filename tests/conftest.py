@@ -10,13 +10,15 @@ def mock_db(monkeypatch):
     mock_db = mock_client["bloom_test"]
     
     # Mock database global connection state
-    monkeypatch.setattr(app.database, "client", mock_client)
-    monkeypatch.setattr(app.database, "db", mock_db)
+    monkeypatch.setattr(database, "client", mock_client)
+    monkeypatch.setattr(database, "db", mock_db)
+    from config import settings
+    monkeypatch.setattr(settings, "IS_LOCAL_OPERATOR", False)
     
-    app.database.init_db()
+    database.init_db()
     yield mock_db
     
-    app.database.close_db()
+    database.close_db()
 
 @pytest.fixture
 def client():

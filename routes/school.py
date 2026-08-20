@@ -276,7 +276,16 @@ async def student_list(
     total = db.students.count_documents(query)
     skip = (page - 1) * limit
     
-    students = list(db.students.find(query).skip(skip).limit(limit))
+    projection = {
+        "_id": 1,
+        "gr": 1,
+        "name": 1,
+        "standard": 1,
+        "division": 1,
+        "roll_number": 1,
+        "photo_status": 1
+    }
+    students = list(db.students.find(query, projection).skip(skip).limit(limit))
     for s in students:
         s["_id"] = str(s["_id"])
         

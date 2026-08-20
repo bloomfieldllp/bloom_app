@@ -17,8 +17,7 @@ pip install -r requirements.txt
 pip install pyinstaller
 
 :: Compile package using Windows semicolon separators
-echo Compiling project executable...
-pyinstaller --name="BloomOperator" --onedir --add-data="templates;templates" --add-data="static;static" main.py
+pyinstaller BloomOperator.spec --noconfirm
 
 echo ===================================================
 echo BUILD COMPLETE! 

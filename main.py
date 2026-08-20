@@ -28,19 +28,83 @@ from fastapi.templating import Jinja2Templates
 
 from config import settings
 from database import init_db, close_db
-from routes import auth, admin, school, operator
+from routes import auth, admin, school, operator, sync
 from dependencies import get_current_user
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("bloom_app")
+log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+logging.basicConfig(level=logging.INFO, format=log_format)
+
+try:
+    from logging.handlers import RotatingFileHandler
+    os.makedirs(settings.LOG_DIR, exist_ok=True)
+    log_file = os.path.join(settings.LOG_DIR, "bloom.log")
+    file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+    file_handler.setFormatter(logging.Formatter(log_format))
+    file_handler.setLevel(logging.INFO)
+    logging.getLogger().addHandler(file_handler)
+except Exception as le:
+    print(f"Failed to initialize rotating file logger: {le}")
+
+logger = logging.getLogger("app.main")
+
+import platform
+
+# Single Instance Lock Check
+lock_file_path = os.path.join(os.path.dirname(settings.SQLITE_DB_PATH), "bloom.lock")
+lock_file = None
+
+def check_single_instance():
+    global lock_file
+    try:
+        if os.path.exists(lock_file_path):
+            try:
+                os.remove(lock_file_path)
+            except Exception:
+                return False
+        os.makedirs(os.path.dirname(lock_file_path), exist_ok=True)
+        lock_file = open(lock_file_path, "w")
+        lock_file.write(str(os.getpid()))
+        lock_file.flush()
+        try:
+            import msvcrt
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
+
+def release_single_instance():
+    global lock_file
+    if lock_file:
+        try:
+            lock_file.close()
+        except Exception:
+            pass
+        try:
+            os.remove(lock_file_path)
+        except Exception:
+            pass
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup actions
     init_db()
+    if settings.IS_LOCAL_OPERATOR:
+        try:
+            from services.sync_service import SyncService
+            SyncService.start_service()
+        except Exception as e:
+            logger.error(f"Failed to start SyncService: {e}")
     yield
     # Shutdown actions
+    if settings.IS_LOCAL_OPERATOR:
+        try:
+            from services.sync_service import SyncService
+            SyncService.stop_service()
+        except Exception:
+            pass
     try:
         from services.file_watcher import WatcherService
         for pid in list(WatcherService._active_tasks.keys()):
@@ -48,6 +112,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error stopping file watchers: {e}")
     close_db()
+    release_single_instance()
+
 
 app = FastAPI(
     title="Bloom ID Card Platform",
@@ -67,6 +133,8 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(school.router)
 app.include_router(operator.router)
+app.include_router(sync.router)
+
 
 @app.get("/")
 async def root(request: Request):
@@ -150,21 +218,100 @@ async def clear_students_db():
     }
 
 
+def wait_for_server(port: int, host: str = "127.0.0.1", timeout: float = 5.0) -> bool:
+    import socket
+    import time
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            with socket.create_connection((host, port), timeout=0.2):
+                return True
+        except (socket.timeout, ConnectionRefusedError, OSError):
+            time.sleep(0.1)
+    return False
+
 if __name__ == "__main__":
     import uvicorn
-    import webbrowser
     import threading
+    import sys
     import time
     
-    # Auto-open operator dashboard browser window after 1 second
-    def launch_browser():
-        time.sleep(1.2)
+    # 1. Single Instance Check
+    if not check_single_instance():
+        import ctypes
         try:
-            webbrowser.open("http://127.0.0.1:8000")
+            ctypes.windll.user32.MessageBoxW(
+                0, 
+                "BLOOM Operator is already running on this machine.", 
+                "Application Already Active", 
+                0x00000010 | 0x00000000  # MB_ICONERROR | MB_OK
+            )
+        except Exception:
+            print("ERROR: BLOOM Operator is already running.")
+        sys.exit(1)
+        
+    # 2. Run Uvicorn server programmatically (packaging-safe, passing the app object)
+    port = 8010 if settings.IS_LOCAL_OPERATOR else 8000
+    
+    def start_server():
+        try:
+            config = uvicorn.Config(app, host="127.0.0.1", port=port, reload=False, log_level="warning")
+            server = uvicorn.Server(config)
+            server.run()
+        except Exception as e:
+            logger.error(f"Uvicorn server crashed: {e}")
+            
+    server_thread = threading.Thread(target=start_server, daemon=True)
+    server_thread.start()
+    
+    # 3. Wait until the local server is actually listening
+    server_ready = wait_for_server(port)
+    if not server_ready:
+        logger.error("FastAPI server failed to start within timeout.")
+        import ctypes
+        try:
+            ctypes.windll.user32.MessageBoxW(
+                0, 
+                "Failed to initialize the local server. Please check the logs.", 
+                "Server Startup Error", 
+                0x00000010 | 0x00000000  # MB_ICONERROR | MB_OK
+            )
+        except Exception:
+            print("ERROR: FastAPI server failed to start.")
+        sys.exit(1)
+        
+    # 4. Native Desktop Window (WebView2)
+    run_desktop_window = getattr(sys, 'frozen', False) or os.environ.get("BLOOM_DESKTOP") == "true" or platform.system() == "Windows"
+    
+    if run_desktop_window:
+        try:
+            import webview
+            
+            # Open native window
+            webview.create_window(
+                title="BLOOM Operator Panel",
+                url=f"http://127.0.0.1:{port}",
+                width=1280,
+                height=820,
+                resizable=True,
+                min_size=(1024, 768)
+            )
+            webview.start()
+        except Exception as we:
+            logger.error(f"Failed to start WebView2 window: {we}. Falling back to default browser.")
+            import webbrowser
+            webbrowser.open(f"http://127.0.0.1:{port}")
+            try:
+                server_thread.join()
+            except KeyboardInterrupt:
+                pass
+    else:
+        import webbrowser
+        try:
+            webbrowser.open(f"http://127.0.0.1:{port}")
         except Exception:
             pass
-            
-    threading.Thread(target=launch_browser, daemon=True).start()
-    
-    # Run production Uvicorn server
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+        try:
+            server_thread.join()
+        except KeyboardInterrupt:
+            pass

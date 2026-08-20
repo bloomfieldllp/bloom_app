@@ -62,25 +62,26 @@ def test_file_import_pipeline_and_validations(mock_db):
     # Valid records should be:
     # 1. 101, Rahul Sharma, 8
     # 2. 102, Rahul Patel, 8
-    assert len(report["valid_records"]) == 2
+    # 3. 104, Missing Class (Grade/Standard is optional)
+    assert len(report["valid_records"]) == 3
     
     assert report["duplicate_gr_in_file_count"] == 1
     assert "101" in report["duplicate_gr_in_file"]
     
     assert report["missing_name_count"] == 1
-    assert report["missing_std_count"] == 1
+    assert report["missing_std_count"] == 0
     
     # 3. Test execution of Import (initial)
     import_res = StudentImportService.execute_import(
         school_id, project_id, report["valid_records"], action="update"
     )
-    assert import_res["inserted"] == 2
+    assert import_res["inserted"] == 3
     assert import_res["updated"] == 0
     
     # Verify records in DB
     db = get_db()
     students_in_db = list(db.students.find({"project_id": project_id}))
-    assert len(students_in_db) == 2
+    assert len(students_in_db) == 3
     
     # 4. Test re-upload behavior (update)
     # We will upload updated names for 101, 102 and a new student 105

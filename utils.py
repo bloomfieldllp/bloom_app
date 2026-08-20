@@ -39,14 +39,16 @@ from fastapi.templating import Jinja2Templates
 def get_resource_path(relative_path: str) -> str:
     if getattr(sys, 'frozen', False):
         bundle_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
-        # Check in bundle root and in _internal
         path1 = os.path.join(bundle_dir, relative_path)
         if os.path.exists(path1):
             return path1
         path2 = os.path.join(bundle_dir, "_internal", relative_path)
         if os.path.exists(path2):
             return path2
-    return relative_path
+        return path1
+    # Development mode: resolve relative to utils.py location
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, relative_path)
 
 def get_templates() -> Jinja2Templates:
     return Jinja2Templates(directory=get_resource_path("templates"))

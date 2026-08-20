@@ -16,24 +16,14 @@ is_mock = False
 def get_db():
     global client, db, is_mock
     if db is None:
-        try:
-            logger.info("Attempting to connect to real MongoDB instance...")
-            # We set serverSelectionTimeoutMS to 2 seconds to fail fast if offline
-            client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=2000, socketTimeoutMS=2000)
-            # Trigger a ping check
-            client.admin.command("ping")
-            db = client[settings.MONGODB_DATABASE]
-            is_mock = False
-            logger.info("Successfully connected to real MongoDB instance.")
-        except Exception as e:
-            logger.warning(f"Failed to connect to real MongoDB ({e}). Falling back to memory-mocked db.")
-            client = mongomock.MongoClient()
-            db = client[settings.MONGODB_DATABASE]
-            is_mock = True
-            
-            # Seed default data in mock database for full interactive testing
-            seed_mock_data(db)
-            
+        logger.info("Attempting to connect to real MongoDB instance...")
+        # Increase timeout to 5 seconds to accommodate Vercel cold starts
+        client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=5000, socketTimeoutMS=5000)
+        # Trigger a ping check to fail fast if connection cannot be established
+        client.admin.command("ping")
+        db = client[settings.MONGODB_DATABASE]
+        is_mock = False
+        logger.info("Successfully connected to real MongoDB instance.")
     return db
 
 def seed_mock_data(database):
@@ -159,8 +149,17 @@ def seed_mock_data(database):
     logger.info("Successfully seeded mock data inside memory database.")
 
 def init_db():
+    if settings.IS_LOCAL_OPERATOR:
+        try:
+            from services.local_db import LocalDB
+            LocalDB.init_db()
+        except Exception as e:
+            logger.error(f"Failed to initialize local SQLite database: {e}")
+        return
+            
     try:
         database = get_db()
+
         
         # Create indexes
         database.schools.create_index("school_code", unique=True)
