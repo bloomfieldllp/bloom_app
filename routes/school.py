@@ -85,11 +85,16 @@ async def import_preview(
             "error": str(e)
         })
         
-    # Save combined output temporarily to disk
-    temp_filename = f"temp_{uuid.uuid4()}_combined.csv"
-    temp_path = os.path.join(UPLOAD_DIR, temp_filename)
-    with open(temp_path, "wb") as f:
-        f.write(combined_bytes)
+    # Save combined output temporarily to MongoDB instead of disk
+    db = get_db()
+    temp_id = ObjectId()
+    db.temp_files.insert_one({
+        "_id": temp_id,
+        "file_bytes": combined_bytes,
+        "filename": "combined_student_records.csv",
+        "created_at": datetime.now(timezone.utc)
+    })
+    temp_path = str(temp_id)
         
     return templates.TemplateResponse(request=request, name="school/import_map.html", context={
         "user": user,
@@ -119,11 +124,17 @@ async def import_validate(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
         
-    if not os.path.exists(temp_file_path):
+    db = get_db()
+    try:
+        temp_file = db.temp_files.find_one({"_id": ObjectId(temp_file_path)})
+    except Exception:
+        temp_file = None
+        
+    if not temp_file:
         raise HTTPException(status_code=400, detail="Temporary file session expired.")
         
-    with open(temp_file_path, "rb") as f:
-        file_bytes = f.read()
+    file_bytes = temp_file["file_bytes"]
+    filename = temp_file.get("filename", "combined_student_records.csv")
         
     mapping = {
         "gr": gr,
@@ -169,11 +180,16 @@ async def execute_import(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
         
-    if not os.path.exists(temp_file_path):
+    db = get_db()
+    try:
+        temp_file = db.temp_files.find_one({"_id": ObjectId(temp_file_path)})
+    except Exception:
+        temp_file = None
+        
+    if not temp_file:
         raise HTTPException(status_code=400, detail="Temporary file session expired.")
         
-    with open(temp_file_path, "rb") as f:
-        file_bytes = f.read()
+    file_bytes = temp_file["file_bytes"]
         
     mapping = json.loads(mapping_json)
     
@@ -190,8 +206,9 @@ async def execute_import(
         action=import_action
     )
     
+    # Clean up temporary database record
     try:
-        os.remove(temp_file_path)
+        db.temp_files.delete_one({"_id": ObjectId(temp_file_path)})
     except Exception:
         pass
         

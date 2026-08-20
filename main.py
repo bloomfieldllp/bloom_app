@@ -124,7 +124,30 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
             context={"detail": exc.detail}, 
             status_code=404
         )
-    raise exc
+    
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
+
+
+@app.get("/clear-students-db")
+async def clear_students_db():
+    db = get_db()
+    student_count = db.students.count_documents({})
+    photo_count = db.student_photos.count_documents({})
+    
+    db.students.delete_many({})
+    db.student_photos.delete_many({})
+    
+    return {
+        "status": "success",
+        "cleared": {
+            "students": student_count,
+            "photos": photo_count
+        }
+    }
 
 
 if __name__ == "__main__":
