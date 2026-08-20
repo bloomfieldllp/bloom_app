@@ -10,9 +10,10 @@ import pandas as pd
 from dependencies import RoleChecker
 from database import get_db
 from services.file_watcher import WatcherService
+from utils import get_templates
 
 router = APIRouter(prefix="/operator", dependencies=[Depends(RoleChecker(["bloom_operator"]))])
-templates = Jinja2Templates(directory="templates")
+templates = get_templates()
 
 def get_student_standard(s: dict) -> str:
     return str(s.get("standard") or s.get("class_name") or "")

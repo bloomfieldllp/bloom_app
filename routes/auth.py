@@ -3,9 +3,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from services.auth_service import AuthService
 from config import settings
+from utils import get_templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+templates = get_templates()
 
 
 @router.get("/login", response_class=HTMLResponse)

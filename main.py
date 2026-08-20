@@ -56,9 +56,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from utils import get_resource_path, get_templates
+
 # Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory=get_resource_path("static")), name="static")
+templates = get_templates()
 
 # Include Routers
 app.include_router(auth.router)

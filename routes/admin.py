@@ -7,8 +7,10 @@ from dependencies import RoleChecker
 from services.school_service import SchoolService
 from services.project_service import ProjectService
 from database import get_db
+from utils import get_templates
+
 router = APIRouter(prefix="/admin", dependencies=[Depends(RoleChecker(["bloom_admin"]))])
-templates = Jinja2Templates(directory="templates")
+templates = get_templates()
 
 
 @router.get("", response_class=HTMLResponse)

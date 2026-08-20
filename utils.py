@@ -30,3 +30,23 @@ def normalize_phone(phone_input: str) -> str:
         raise ValueError("Phone number must be a valid 10-digit number.")
         
     return digits
+
+
+import sys
+import os
+from fastapi.templating import Jinja2Templates
+
+def get_resource_path(relative_path: str) -> str:
+    if getattr(sys, 'frozen', False):
+        bundle_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        # Check in bundle root and in _internal
+        path1 = os.path.join(bundle_dir, relative_path)
+        if os.path.exists(path1):
+            return path1
+        path2 = os.path.join(bundle_dir, "_internal", relative_path)
+        if os.path.exists(path2):
+            return path2
+    return relative_path
+
+def get_templates() -> Jinja2Templates:
+    return Jinja2Templates(directory=get_resource_path("templates"))

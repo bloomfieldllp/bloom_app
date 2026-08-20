@@ -12,9 +12,10 @@ from services.school_service import SchoolService
 from services.project_service import ProjectService
 from services.student_import_service import StudentImportService
 from database import get_db
+from utils import get_templates
 
 router = APIRouter(prefix="/school", dependencies=[Depends(RoleChecker(["school_admin"]))])
-templates = Jinja2Templates(directory="templates")
+templates = get_templates()
 
 # Ensure uploads directory exists (use /tmp/uploads in serverless read-only environments)
 if os.environ.get("VERCEL") or not os.access(".", os.W_OK):
