@@ -3,81 +3,59 @@
 {% block title %}School Portal Dashboard - Bloom{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 2rem;">
-    <h1 style="color: var(--brand-primary); font-weight: 800; letter-spacing: -0.03em; margin: 0;">{{ school.name }}</h1>
-    <p class="subtitle" style="margin-top: 0.25rem;">School Portal Dashboard — Manage student records and track photo capturing progress.</p>
-</div>
-
-<!-- Stats -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <span class="stat-label">Students Registered</span>
-        <span class="stat-value">{{ stats.total_students }}</span>
-    </div>
-    <div class="stat-card">
-        <span class="stat-label">Photographed</span>
-        <span class="stat-value" style="color: var(--success);">{{ stats.photographed_students }}</span>
-    </div>
-    <div class="stat-card">
-        <span class="stat-label">Pending Capture</span>
-        <span class="stat-value" style="color: var(--warning);">{{ stats.pending_students }}</span>
-    </div>
-    <div class="stat-card">
-        <span class="stat-label">Total Projects</span>
-        <span class="stat-value">{{ stats.projects_count }}</span>
-    </div>
-</div>
-
-<!-- Projects list -->
-<div class="card" style="padding: 1.5rem; width: 100%; min-width: 0;">
-    <div class="card-header" style="margin-bottom: 1rem;">
-        <h2 style="margin: 0; font-weight: 700;">Photography Projects</h2>
-    </div>
-    
-    {% if not projects %}
-        <p style="color: var(--text-secondary); text-align: center; padding: 2rem 0;">No projects initialized yet. Please contact Bloom Admin to create one.</p>
-    {% else %}
-        <div class="table-container" style="width: 100%; min-width: 0;">
-            <table class="enhanced-table">
-                <thead>
-                    <tr>
-                        <th>Project Name</th>
-                        <th>Academic Year</th>
-                        <th>Total Students</th>
-                        <th>Photographed</th>
-                        <th>Pending</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for project in projects %}
-                        <tr>
-                            <td style="font-weight: 600;">{{ project.name }}</td>
-                            <td><code class="badge badge-secondary" style="font-size: 0.85rem;">{{ project.academic_year }}</code></td>
-                            <td>{{ project.total_students }}</td>
-                            <td><span style="color: var(--success); font-weight: 600;">{{ project.photographed_students }}</span></td>
-                            <td><span style="color: var(--warning); font-weight: 600;">{{ project.pending_students }}</span></td>
-                            <td>
-                                <span class="badge {% if project.status == 'active' or project.status == 'scheduled' or project.status == 'confirmed' %}badge-success{% else %}badge-danger{% endif %}">
-                                    {{ project.status.title() }}
-                                </span>
-                            </td>
-                            <td>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <a href="/school/projects/{{ project._id }}/students" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
-                                        View Students
-                                    </a>
-                                    <a href="/school/projects/{{ project._id }}/import" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem; color: white;">
-                                        Upload Student Data
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<div class="dashboard-layout" style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 2.5rem; align-items: center; margin-top: 1rem;">
+    <!-- Left Zone: Info and stats -->
+    <div style="display: flex; flex-direction: column; gap: 2rem;">
+        <div>
+            <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">School Portal</span>
+            <h1 style="color: #111; font-weight: 800; font-size: 2.5rem; letter-spacing: -0.03em; margin: 0.25rem 0 0.5rem 0;">{{ school.name }}</h1>
+            <p style="color: #555; font-size: 1.05rem; line-height: 1.5; margin: 0; font-style: italic;">
+                "Educating the mind without educating the heart is no education at all." — Welcome to your student photography tracking dashboard.
+            </p>
         </div>
-    {% endif %}
+
+        <!-- Three compact statistic cards -->
+        <div class="stat-card-row">
+            <div class="stat-box">
+                <span class="stat-box-label">Total Students</span>
+                <span class="stat-box-value">{{ stats.total_students }}</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-box-label">Photographed</span>
+                <span class="stat-box-value" style="color: #2E7D32;">{{ stats.photographed_students }}</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-box-label">Remaining</span>
+                <span class="stat-box-value" style="color: #ED6C02;">{{ stats.pending_students }}</span>
+            </div>
+        </div>
+
+        <!-- Bottom CTA -->
+        <div style="margin-top: 0.5rem;">
+            {% if stats.total_students == 0 %}
+                <a href="/school/import" class="btn-primary-dark">Upload Student Data</a>
+            {% else %}
+                <a href="/school/import" class="btn-primary-dark">Update Student Data</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Zone: Large abstract illustration -->
+    <div style="display: flex; justify-content: center; align-items: center;">
+        <div style="width: 100%; max-width: 380px;">
+            <svg viewBox="0 0 400 400" width="100%" height="auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M50 180C50 90 120 50 200 50C280 50 350 100 350 180C350 260 270 350 200 350C110 350 50 270 50 180Z" fill="#F4EFE3" opacity="0.6"/>
+                <circle cx="160" cy="180" r="100" fill="#FFE5D9" opacity="0.8"/>
+                <circle cx="250" cy="200" r="85" fill="#D8E2DC" opacity="0.8"/>
+                <circle cx="210" cy="140" r="60" fill="#FFCAD4" opacity="0.7"/>
+                <path d="M120 280C120 220 180 180 180 180C180 180 220 240 180 280C150 310 120 310 120 280Z" fill="#B7B7A4" opacity="0.8"/>
+                <circle cx="210" cy="190" r="45" stroke="#2C2C2A" stroke-width="3" stroke-dasharray="4 4"/>
+                <circle cx="210" cy="190" r="30" stroke="#2C2C2A" stroke-width="4"/>
+                <circle cx="210" cy="190" r="8" fill="#2C2C2A"/>
+                <path d="M170 120L210 105L250 120L210 135Z" fill="#2C2C2A"/>
+                <path d="M190 127V145C190 150 230 150 230 145V127" stroke="#2C2C2A" stroke-width="2" fill="none"/>
+            </svg>
+        </div>
+    </div>
 </div>
 {% endblock %}

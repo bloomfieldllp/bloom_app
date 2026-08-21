@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/static/css/style.css">
     {% block head %}{% endblock %}
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body {% if user and user.role == 'school_admin' %}school-admin-portal{% endif %}">
 
     <!-- Premium Blurred Background Spots (Derived from Image Tones) -->
     <div class="blob-bg blob-peach"></div>
@@ -18,6 +18,23 @@
     <div class="app-container">
         <!-- Top Navbar -->
         <header class="navbar">
+            {% if user and user.role == 'school_admin' %}
+            <div class="navbar-left" style="display: flex; align-items: center; gap: 8px;">
+                <a href="/school" style="display: flex; align-items: center; text-decoration: none;">
+                    <img src="/static/images/bloom-logo.svg" alt="Bloom" class="navbar-logo-img" style="height: 32px; width: auto;">
+                    <span style="font-size: 1.15rem; font-weight: 800; color: #111111; margin-left: 8px; font-family: sans-serif; letter-spacing: -0.02em;">Cafeteria</span>
+                </a>
+            </div>
+            <div class="navbar-right">
+                <button class="hamburger-btn" onclick="toggleMobileNav()" aria-label="Toggle Navigation">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="4" x2="20" y1="12" y2="12"></line>
+                        <line x1="4" x2="20" y1="6" y2="6"></line>
+                        <line x1="4" x2="20" y1="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            {% else %}
             <div class="navbar-left">
                 {% if user %}
                 <button class="hamburger-btn" onclick="toggleMobileNav()" aria-label="Toggle Navigation">
@@ -41,6 +58,7 @@
             <div class="navbar-right">
                 <img src="/static/images/bloom-logo.svg" alt="Bloom" class="navbar-logo-img">
             </div>
+            {% endif %}
         </header>
 
         <!-- Main Layout -->

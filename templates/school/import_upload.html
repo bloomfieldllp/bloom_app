@@ -3,63 +3,250 @@
 {% block title %}Upload Student Data - Bloom{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 2rem;">
-    <a href="/school" style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">← Back to Dashboard</a>
-    <h1 style="margin-top: 0.5rem;">Upload Student Data</h1>
-    <p class="subtitle">Upload a spreadsheet (CSV or Excel) containing student records for project: <strong>{{ project.name }}</strong>.</p>
-</div>
-
-<div style="max-width: 600px; margin: 0 auto;">
-    {% if error %}
-        <div class="alert alert-danger">
-            {{ error }}
+<div class="school-admin-portal" style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; min-height: calc(100vh - 120px); justify-content: space-between;">
+    <!-- Step Indicator at the top -->
+    <div class="step-container">
+        <div class="step-item active">
+            <div class="step-dot">1</div>
+            <div class="step-label" id="lbl-step1">1. Browse File</div>
         </div>
-    {% endif %}
+        <div class="step-item">
+            <div class="step-dot">2</div>
+            <div class="step-label" id="lbl-step2">2. Map Columns</div>
+        </div>
+        <div class="step-item">
+            <div class="step-dot">3</div>
+            <div class="step-label" id="lbl-step3">3. Validate & Upload</div>
+        </div>
+    </div>
 
-    <div class="card" style="padding: 2rem;">
-        <h3 style="margin-bottom: 1rem;">Select spreadsheet file</h3>
-        <form action="/school/projects/{{ project._id }}/preview" method="POST" enctype="multipart/form-data" id="upload-form">
-            <div class="form-group" style="border: 2px dashed var(--border-color); padding: 2rem; border-radius: 0.5rem; text-align: center; cursor: pointer; transition: border-color 0.2s;" id="dropzone">
-                <input type="file" id="files" name="files" accept=".csv, .xlsx, .xls" style="display: none;" required multiple onchange="updateFileLabel()">
-                <label for="files" style="cursor: pointer; display: block;">
-                    <div style="font-size: 2rem; color: var(--text-secondary); margin-bottom: 0.5rem;">📁</div>
-                    <span id="file-label" style="font-weight: 600; color: var(--brand-primary);">Click to browse files</span>
-                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">Supports multiple CSV, XLSX, XLS formats (upload class-wise or combined)</p>
-                </label>
+    <!-- Main Content Area -->
+    <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 2rem; align-items: center; flex-grow: 1;">
+        <!-- Left: Form and Dropzone -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="font-weight: 800; font-size: 1.8rem; margin: 0; letter-spacing: -0.02em;" id="lbl-heading">Browse the Excel file</h2>
+                    <p style="color: var(--text-secondary); margin: 0.25rem 0 0 0; font-size: 0.95rem;" id="lbl-subheading">Select the Excel file that contains student information.</p>
+                </div>
+                <!-- Language Selector control -->
+                <div class="lang-selector">
+                    <button type="button" class="lang-btn active" id="btn-lang-eng" onclick="setLanguage('ENG')">ENG</button>
+                    <button type="button" class="lang-btn" id="btn-lang-guj" onclick="setLanguage('GUJ')">GUJ</button>
+                </div>
+            </div>
+
+            {% if error %}
+                <div class="alert alert-danger" style="margin: 0; padding: 0.75rem 1rem; border-radius: 8px;">
+                    {{ error }}
+                </div>
+            {% endif %}
+
+            <!-- Form -->
+            <form action="/school/projects/{{ project._id }}/preview" method="POST" enctype="multipart/form-data" id="upload-form" onsubmit="showUploadingState()">
+                <div class="admin-card" style="padding: 1.5rem;" id="dropzone-card">
+                    <input type="file" id="files" name="files" accept=".csv, .xlsx, .xls" style="display: none;" required multiple onchange="handleFileSelect()">
+                    
+                    <!-- Drag and drop zone -->
+                    <label for="files" id="drop-area" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed #EBEAE4; border-radius: 16px; padding: 2rem; text-align: center; background: #faf9f6; transition: all 0.2s ease;">
+                        <span style="font-size: 2.5rem; margin-bottom: 0.5rem;">📁</span>
+                        <span id="lbl-file-prompt" style="font-weight: 700; color: #111;">Click to browse files</span>
+                        <p id="lbl-file-supports" style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.25rem 0 0 0;">Supports multiple CSV, XLSX, XLS formats</p>
+                    </label>
+
+                    <!-- Selected file state wrapper -->
+                    <div id="file-details-container" style="display: none; align-items: center; justify-content: space-between; background: #F5F4EE; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid #EBEAE4; margin-top: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.5rem;">📄</span>
+                            <div style="display: flex; flex-direction: column;">
+                                <span id="file-name" style="font-weight: 700; font-size: 0.9rem; color: #111; word-break: break-all;">file_name.xlsx</span>
+                                <span id="file-size" style="font-size: 0.75rem; color: var(--text-secondary);">45 KB</span>
+                            </div>
+                        </div>
+                        <button type="button" onclick="clearFileSelection()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-secondary); padding: 5px; line-height: 1;">&times;</button>
+                    </div>
+
+                    <!-- Uploading progress spinner -->
+                    <div id="uploading-container" style="display: none; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 0; gap: 0.75rem;">
+                        <div class="skeleton-bar" style="width: 100%; height: 8px;"></div>
+                        <span id="lbl-uploading" style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">Uploading your file...</span>
+                    </div>
+                </div>
+
+                <!-- Footer buttons aligned to bottom of screen -->
+                <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                    <a href="/school" class="btn-secondary-light" id="lbl-btn-cancel">Cancel</a>
+                    <button type="button" class="btn-primary-dark" id="btn-submit-action">Browse Excel File</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Right: Abstract Illustration & Guidelines -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <!-- Guidelines card -->
+            <div class="admin-card" style="padding: 1.5rem; background: #FFFDF9;">
+                <h4 style="margin: 0 0 0.75rem 0; font-weight: 700; font-size: 1rem; color: #111;" id="lbl-guidelines-header">Required Fields Guidelines</h4>
+                <ul style="font-size: 0.85rem; color: var(--text-secondary); margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <li id="lbl-guide1"><strong>GR</strong>: General Register Number (Unique identifier per student).</li>
+                    <li id="lbl-guide2"><strong>Name</strong>: Student's full name.</li>
+                    <li id="lbl-guide3"><strong>Standard</strong>: Grade/Class (e.g. 1, 2, 8, 10).</li>
+                    <li id="lbl-guide4">Roll Number & Division are optional but recommended.</li>
+                </ul>
             </div>
             
-            <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem;">
-                <a href="/school" class="btn btn-secondary">Cancel</a>
-                <button type="submit" class="btn btn-primary" style="color: white;">Upload & Preview</button>
+            <!-- Graphic -->
+            <div style="display: flex; justify-content: center; align-items: center;">
+                <div style="width: 100%; max-width: 280px; opacity: 0.95;">
+                    <svg viewBox="0 0 400 400" width="100%" height="auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="200" cy="200" r="150" fill="#F4EFE3" opacity="0.5"/>
+                        <rect x="130" y="140" width="140" height="120" rx="16" fill="#D8E2DC" opacity="0.8"/>
+                        <circle cx="200" cy="200" r="35" fill="#FFE5D9" opacity="0.9"/>
+                        <path d="M120 180C140 130 260 130 280 180" stroke="#2C2C2A" stroke-width="3" stroke-linecap="round"/>
+                        <circle cx="200" cy="200" r="15" fill="#2C2C2A"/>
+                    </svg>
+                </div>
             </div>
-        </form>
-    </div>
-    
-    <div class="card" style="padding: 1.5rem; margin-top: 1.5rem; background-color: var(--bg-primary);">
-        <h4 style="margin-bottom: 0.5rem;">Required Fields Guidelines</h4>
-        <ul style="font-size: 0.9rem; color: var(--text-secondary); margin-left: 1.25rem;">
-            <li style="margin-bottom: 0.25rem;"><strong>GR</strong>: General Register Number (Unique identifier per student).</li>
-            <li style="margin-bottom: 0.25rem;"><strong>Name</strong>: Student's full name.</li>
-            <li style="margin-bottom: 0.25rem;"><strong>Standard</strong>: Grade/Class (e.g. 1, 2, 8, 10).</li>
-            <li style="margin-bottom: 0.25rem;"><strong>Roll Number</strong> & <strong>Division</strong> are optional but recommended.</li>
-        </ul>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    function updateFileLabel() {
-        var fileInput = document.getElementById('files');
-        var fileLabel = document.getElementById('file-label');
-        if (fileInput.files.length > 0) {
-            if (fileInput.files.length === 1) {
-                fileLabel.textContent = "Selected: " + fileInput.files[0].name;
-            } else {
-                fileLabel.textContent = fileInput.files.length + " files selected";
-            }
-            fileLabel.style.color = "var(--success)";
+    const translations = {
+        ENG: {
+            step1: "1. Browse File",
+            step2: "2. Map Columns",
+            step3: "3. Validate & Upload",
+            heading: "Browse the Excel file",
+            supportingText: "Select the Excel file that contains student information.",
+            guidelines: "Required Fields Guidelines",
+            guideline1: "GR: General Register Number (Unique identifier per student).",
+            guideline2: "Name: Student's full name.",
+            guideline3: "Standard: Grade/Class (e.g. 1, 2, 8, 10).",
+            guideline4: "Roll Number & Division are optional but recommended.",
+            btnBrowse: "Browse Excel File",
+            btnUpload: "Upload File",
+            clickToBrowse: "Click to browse files",
+            supportsText: "Supports multiple CSV, XLSX, XLS formats",
+            uploading: "Uploading your file...",
+            cancel: "Cancel"
+        },
+        GUJ: {
+            step1: "૧. ફાઇલ પસંદ કરો",
+            step2: "૨. કોલમ મેપ કરો",
+            step3: "૩. ચકાસો અને અપલોડ કરો",
+            heading: "એક્સેલ ફાઇલ પસંદ કરો",
+            supportingText: "વિદ્યાર્થીઓની માહિતી ધરાવતી એક્સેલ ફાઇલ પસંદ કરો.",
+            guidelines: "જરૂરી ફીલ્ડ્સ માર્ગદર્શિકા",
+            guideline1: "GR: જનરલ રજિસ્ટર નંબર (વિદ્યાર્થી દીઠ અનન્ય ઓળખકર્તા).",
+            guideline2: "Name: વિદ્યાર્થીનું આખું નામ.",
+            guideline3: "Standard: ધોરણ (દા.ત. ૧, ૨, ૮, ૧૦).",
+            guideline4: "રોલ નંબર અને ડિવિઝન વૈકલ્પિક છે પરંતુ ભલામણ કરેલ છે.",
+            btnBrowse: "એક્સેલ ફાઇલ પસંદ કરો",
+            btnUpload: "ફાઇલ અપલોડ કરો",
+            clickToBrowse: "ફાઇલ પસંદ કરવા ક્લિક કરો",
+            supportsText: "CSV, XLSX, XLS ફોર્મેટને સપોર્ટ કરે છે",
+            uploading: "તમારી ફાઇલ અપલોડ થઈ રહી છે...",
+            cancel: "રદ કરો"
         }
+    };
+
+    let currentLang = localStorage.getItem('bloom_upload_lang') || 'ENG';
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem('bloom_upload_lang', lang);
+        
+        // Update active class on selector
+        document.getElementById('btn-lang-eng').classList.toggle('active', lang === 'ENG');
+        document.getElementById('btn-lang-guj').classList.toggle('active', lang === 'GUJ');
+        
+        // Translate labels
+        const t = translations[lang];
+        document.getElementById('lbl-step1').textContent = t.step1;
+        document.getElementById('lbl-step2').textContent = t.step2;
+        document.getElementById('lbl-step3').textContent = t.step3;
+        document.getElementById('lbl-heading').textContent = t.heading;
+        document.getElementById('lbl-subheading').textContent = t.supportingText;
+        document.getElementById('lbl-guidelines-header').textContent = t.guidelines;
+        document.getElementById('lbl-guide1').innerHTML = `<strong>GR</strong>: ` + (lang === 'ENG' ? "General Register Number (Unique identifier per student)." : "જરૂરી ઓળખપત્ર નંબર (વિદ્યાર્થી દીઠ અનન્ય).");
+        document.getElementById('lbl-guide2').innerHTML = `<strong>Name</strong>: ` + (lang === 'ENG' ? "Student's full name." : "વિદ્યાર્થીનું આખું નામ.");
+        document.getElementById('lbl-guide3').innerHTML = `<strong>Standard</strong>: ` + (lang === 'ENG' ? "Grade/Class (e.g. 1, 2, 8, 10)." : "ધોરણ (દા.ત. ૧, ૨, ૮, ૧૦).");
+        document.getElementById('lbl-guide4').textContent = t.guideline4;
+        
+        document.getElementById('lbl-file-prompt').textContent = t.clickToBrowse;
+        document.getElementById('lbl-file-supports').textContent = t.supportsText;
+        document.getElementById('lbl-uploading').textContent = t.uploading;
+        document.getElementById('lbl-btn-cancel').textContent = t.cancel;
+        
+        // Update Submit button text depending on selection state
+        const fileInput = document.getElementById('files');
+        const submitBtn = document.getElementById('btn-submit-action');
+        if (fileInput.files.length > 0) {
+            submitBtn.textContent = t.btnUpload;
+        } else {
+            submitBtn.textContent = t.btnBrowse;
+        }
+    }
+
+    // Initialize translations
+    setLanguage(currentLang);
+
+    function handleFileSelect() {
+        const fileInput = document.getElementById('files');
+        const submitBtn = document.getElementById('btn-submit-action');
+        const detailsContainer = document.getElementById('file-details-container');
+        const dropArea = document.getElementById('drop-area');
+        
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            document.getElementById('file-name').textContent = file.name;
+            
+            // Format size
+            const sizeKB = (file.size / 1024).toFixed(1);
+            document.getElementById('file-size').textContent = `${sizeKB} KB`;
+            
+            detailsContainer.style.display = 'flex';
+            dropArea.style.display = 'none';
+            
+            // Update submit button text to Upload File in correct language
+            submitBtn.textContent = translations[currentLang].btnUpload;
+            submitBtn.type = "submit"; // change type to submit so it posts
+        }
+    }
+
+    function clearFileSelection() {
+        const fileInput = document.getElementById('files');
+        const submitBtn = document.getElementById('btn-submit-action');
+        const detailsContainer = document.getElementById('file-details-container');
+        const dropArea = document.getElementById('drop-area');
+        
+        fileInput.value = ""; // clear selected files
+        detailsContainer.style.display = 'none';
+        dropArea.style.display = 'flex';
+        
+        // Update submit button text back to Browse in correct language
+        submitBtn.textContent = translations[currentLang].btnBrowse;
+        submitBtn.type = "button"; // reset type so it triggers click trigger instead of submit
+    }
+
+    // Configure main submit button behavior
+    document.getElementById('btn-submit-action').addEventListener('click', function(e) {
+        const fileInput = document.getElementById('files');
+        if (fileInput.files.length === 0) {
+            e.preventDefault();
+            fileInput.click(); // trigger browse dialog
+        }
+    });
+
+    function showUploadingState() {
+        // Show skeletons and hide details/controls during form submit
+        document.getElementById('dropzone-card').style.border = 'none';
+        document.getElementById('file-details-container').style.display = 'none';
+        document.getElementById('uploading-container').style.display = 'flex';
+        document.getElementById('lbl-btn-cancel').style.pointerEvents = 'none';
+        document.getElementById('btn-submit-action').disabled = true;
     }
 </script>
 {% endblock %}

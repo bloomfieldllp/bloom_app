@@ -1196,3 +1196,323 @@ textarea.form-control {
     accent-color: var(--brand-primary);
     cursor: pointer;
 }
+
+/* =========================================================
+   SCHOOL ADMIN PORTAL VISUAL SYSTEM
+========================================================= */
+.school-admin-portal {
+    --bg-warm: #FAF9F6;
+    --card-bg: #FFFFFF;
+    --text-primary: #1A1A19;
+    --text-secondary: #5C5A56;
+    --brand-primary: #111111;
+    --brand-secondary: #2C2C2A;
+    --border-subtle: #EBEAE4;
+    --success: #2E7D32;
+    --warning: #ED6C02;
+    --danger: #D32F2F;
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 8px;
+}
+
+.school-admin-portal,
+.school-admin-portal body,
+.school-admin-portal .dashboard-body,
+.school-admin-portal main,
+.school-admin-portal .layout-body-wrapper {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    background-color: #FAF9F6 !important;
+    color: #1A1A19 !important;
+}
+
+/* Hide background spots for clean minimalist look */
+.school-admin-portal .blob-bg {
+    display: none !important;
+}
+
+.school-admin-portal .app-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Visually lightweight header */
+.school-admin-portal .navbar {
+    background: transparent !important;
+    border-bottom: 1px solid #EBEAE4 !important;
+    padding: 15px 0 !important;
+    margin-bottom: 1.5rem !important;
+    box-shadow: none !important;
+}
+
+.school-admin-portal .navbar-logo-img {
+    height: 32px !important;
+    width: auto !important;
+}
+
+.school-admin-portal .hamburger-btn {
+    border-radius: 50% !important;
+    width: 40px !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #ffffff !important;
+    border: 1px solid #EBEAE4 !important;
+    color: #1A1A19 !important;
+    transition: all 0.2s ease !important;
+    padding: 0 !important;
+}
+
+.school-admin-portal .hamburger-btn:hover {
+    background: #f1f0ea !important;
+}
+
+/* Custom premium cards */
+.school-admin-portal .admin-card {
+    background: #FFFFFF !important;
+    border: 1px solid #EBEAE4 !important;
+    border-radius: 24px !important;
+    padding: 2rem !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.015) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Compact stats */
+.school-admin-portal .stat-card-row {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.school-admin-portal .stat-box {
+    flex: 1;
+    background: #FDFDFD;
+    border: 1px solid #EBEAE4;
+    border-radius: 16px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.school-admin-portal .stat-box-label {
+    font-size: 0.85rem;
+    color: #5C5A56;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.school-admin-portal .stat-box-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #1A1A19;
+    line-height: 1.2;
+}
+
+/* Rounded dark premium buttons */
+.school-admin-portal .btn-primary-dark {
+    background-color: #111111 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 30px !important;
+    padding: 14px 28px !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-decoration: none !important;
+}
+
+.school-admin-portal .btn-primary-dark:hover {
+    background-color: #333333 !important;
+    transform: translateY(-1px) !important;
+}
+
+.school-admin-portal .btn-secondary-light {
+    background-color: #ffffff !important;
+    color: #1A1A19 !important;
+    border: 1px solid #EBEAE4 !important;
+    border-radius: 30px !important;
+    padding: 14px 28px !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-decoration: none !important;
+}
+
+.school-admin-portal .btn-secondary-light:hover {
+    background-color: #f5f4ee !important;
+}
+
+/* Step indicators */
+.school-admin-portal .step-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 600px;
+    margin: 0 auto 2rem auto;
+    position: relative;
+}
+
+.school-admin-portal .step-container::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 40px;
+    right: 40px;
+    height: 2px;
+    background: #EBEAE4;
+    z-index: 1;
+}
+
+.school-admin-portal .step-item {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 120px;
+}
+
+.school-admin-portal .step-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 2px solid #EBEAE4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #5C5A56;
+    transition: all 0.3s ease;
+}
+
+.school-admin-portal .step-item.active .step-dot {
+    border-color: #111111;
+    background: #111111;
+    color: #ffffff;
+}
+
+.school-admin-portal .step-item.completed .step-dot {
+    border-color: #4CAF50;
+    background: #4CAF50;
+    color: #ffffff;
+}
+
+.school-admin-portal .step-label {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #5C5A56;
+    text-align: center;
+}
+
+.school-admin-portal .step-item.active .step-label {
+    color: #1A1A19;
+}
+
+/* Segmented Language Selector */
+.school-admin-portal .lang-selector {
+    display: inline-flex;
+    background: #f1f0ea;
+    border-radius: 30px;
+    padding: 4px;
+    border: 1px solid #EBEAE4;
+}
+
+.school-admin-portal .lang-btn {
+    border: none;
+    background: transparent;
+    padding: 6px 18px;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #5C5A56;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.school-admin-portal .lang-btn.active {
+    background: #ffffff;
+    color: #1A1A19;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+/* Skeletons */
+.school-admin-portal .skeleton-shimmer {
+    background: linear-gradient(90deg, #F0EFEA 25%, #E6E5DF 50%, #F0EFEA 75%);
+    background-size: 200% 100%;
+    animation: shimmer-load 1.5s infinite;
+    border-radius: 8px;
+}
+
+@keyframes shimmer-load {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.school-admin-portal .skeleton-bar {
+    height: 18px;
+    width: 100%;
+    background: linear-gradient(90deg, #F0EFEA 25%, #E6E5DF 50%, #F0EFEA 75%);
+    background-size: 200% 100%;
+    animation: shimmer-load 1.5s infinite;
+    border-radius: 8px;
+}
+
+.school-admin-portal .skeleton-row td .skeleton-bar {
+    display: inline-block;
+    height: 16px;
+    background: linear-gradient(90deg, #f3f2ec 25%, #eae9e2 50%, #f3f2ec 75%);
+    background-size: 200% 100%;
+    animation: shimmer-load 1.5s infinite;
+    border-radius: 4px;
+}
+
+/* soft pill badges */
+.school-admin-portal .badge {
+    border-radius: 20px !important;
+    padding: 4px 12px !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    display: inline-block !important;
+    border: none !important;
+}
+
+.school-admin-portal .badge-success {
+    background-color: #E2F0D9 !important;
+    color: #2E7D32 !important;
+}
+
+.school-admin-portal .badge-warning {
+    background-color: #FFF3E0 !important;
+    color: #ED6C02 !important;
+}
+
+.school-admin-portal .badge-secondary {
+    background-color: #F0EFEA !important;
+    color: #5C5A56 !important;
+}
+
+/* HTMX indicator overlay style */
+.school-admin-portal #student-table-container.htmx-request {
+    opacity: 0.55;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
