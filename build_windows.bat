@@ -16,6 +16,12 @@ echo Installing pyinstaller and requirements...
 pip install -r requirements.txt
 pip install pyinstaller
 
+:: Download Microsoft Visual C++ Redistributable x64 installer if not present
+if not exist vc_redist.x64.exe (
+    echo Downloading Microsoft Visual C++ Redistributable...
+    powershell -Command "Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vc_redist.x64.exe' -OutFile 'vc_redist.x64.exe'"
+)
+
 :: Compile package using Windows semicolon separators
 pyinstaller BloomOperator.spec --noconfirm
 
