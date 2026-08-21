@@ -25,143 +25,138 @@
         <input type="hidden" name="temp_file_path" value="{{ temp_file_path }}">
         <input type="hidden" name="filename" value="{{ filename }}">
 
-        <div style="display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 1.5rem; align-items: start;">
-            <!-- Left: Mapping Controls -->
-            <div class="admin-card" style="padding: 1.25rem;">
-                <h2 style="font-weight: 800; font-size: 1.4rem; margin: 0 0 0.25rem 0; letter-spacing: -0.02em;" id="lbl-heading">Column Mapping</h2>
-                <p style="color: var(--text-secondary); margin: 0 0 1rem 0; font-size: 0.85rem; line-height: 1.4;" id="lbl-subheading">Map the headers from your uploaded file to the required student database fields.</p>
-
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                    <thead>
-                        <tr style="border-bottom: 1px solid #EBEAE4;">
-                            <th style="text-align: left; padding: 6px 0; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase;" id="lbl-col-system">System Field</th>
-                            <th style="text-align: left; padding: 6px 0 0 8px; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase;" id="lbl-col-uploaded">Uploaded Column</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr style="border-bottom: 1px solid #FAF9F6;">
-                            <td style="padding: 8px 0; font-weight: 700; color: #111;" id="lbl-field-gr">
-                                GR / Register No <span style="color: var(--danger);">*</span>
-                            </td>
-                            <td style="padding: 8px 0 8px 8px;">
-                                <select name="gr" class="form-control" required style="padding: 6px 12px; border-radius: 8px; border: 1px solid #EBEAE4; width: 100%; font-size: 0.85rem;">
-                                    <option value="">-- Select Column --</option>
-                                    {% for header in headers %}
-                                        <option value="{{ header }}" {% if header.lower() in ['gr', 'gr_no', 'gr no', 'grnumber', 'gr_number', 'register_no', 'reg_no', 'id'] %}selected{% endif %}>
-                                            {{ header }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #FAF9F6;">
-                            <td style="padding: 8px 0; font-weight: 700; color: #111;" id="lbl-field-name">
-                                Student Name <span style="color: var(--danger);">*</span>
-                            </td>
-                            <td style="padding: 8px 0 8px 8px;">
-                                <select name="name" class="form-control" required style="padding: 6px 12px; border-radius: 8px; border: 1px solid #EBEAE4; width: 100%; font-size: 0.85rem;">
-                                    <option value="">-- Select Column --</option>
-                                    {% for header in headers %}
-                                        <option value="{{ header }}" {% if header.lower() in ['name', 'student_name', 'student name', 'fullname', 'full_name', 'student'] %}selected{% endif %}>
-                                            {{ header }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #FAF9F6;">
-                            <td style="padding: 8px 0; font-weight: 700; color: #111;" id="lbl-field-standard">
-                                Standard / Grade
-                            </td>
-                            <td style="padding: 8px 0 8px 8px;">
-                                <select name="standard" class="form-control" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #EBEAE4; width: 100%; font-size: 0.85rem;">
-                                    <option value="">-- Ignore Column --</option>
-                                    {% for header in headers %}
-                                        <option value="{{ header }}" {% if header.lower() in ['std', 'standard', 'grade', 'class'] %}selected{% endif %}>
-                                            {{ header }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #FAF9F6;">
-                            <td style="padding: 8px 0; font-weight: 700; color: #111;" id="lbl-field-roll">
-                                Roll Number
-                            </td>
-                            <td style="padding: 8px 0 8px 8px;">
-                                <select name="roll_number" class="form-control" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #EBEAE4; width: 100%; font-size: 0.85rem;">
-                                    <option value="">-- Ignore Column --</option>
-                                    {% for header in headers %}
-                                        <option value="{{ header }}" {% if header.lower() in ['roll', 'roll_no', 'roll no', 'rollnumber', 'roll_number'] %}selected{% endif %}>
-                                            {{ header }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #FAF9F6;">
-                            <td style="padding: 8px 0; font-weight: 700; color: #111;" id="lbl-field-division">
-                                Division / Section
-                            </td>
-                            <td style="padding: 8px 0 8px 8px;">
-                                <select name="division" class="form-control" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #EBEAE4; width: 100%; font-size: 0.85rem;">
-                                    <option value="">-- Ignore Column --</option>
-                                    {% for header in headers %}
-                                        <option value="{{ header }}" {% if header.lower() in ['div', 'division', 'sec', 'section'] %}selected{% endif %}>
-                                            {{ header }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+        <!-- Main Centered Content Card -->
+        <div class="upload-centered-card">
+            <!-- Center illustration with overlapping background blobs -->
+            <div class="upload-illustration-container">
+                <div class="upload-ill-bg yellow" style="width: 140px; height: 140px; top: 20px; left: 60px; opacity: 0.9;"></div>
+                <img src="/static/images/SVG_files/Asset 2.svg" alt="Column Mapping" class="upload-ill-fg" style="max-height: 140px;">
             </div>
 
-            <!-- Right: Data Preview & Illustration -->
-            <div style="display: flex; flex-direction: column; gap: 1rem;">
-                <!-- Graphic & Preview -->
-                <div class="admin-card" style="padding: 1rem; overflow: hidden;">
-                    <h3 style="font-weight: 700; font-size: 0.95rem; margin: 0 0 0.5rem 0;" id="lbl-preview-title">Data Preview (Top 5 rows)</h3>
-                    <div class="table-container" style="max-height: 220px; width: 100%; min-width: 0; border: 1px solid #EBEAE4; border-radius: 12px; font-size: 0.8rem;">
-                        <table class="enhanced-table" style="font-size: 0.75rem;">
-                            <thead>
-                                <tr>
-                                    {% for header in headers %}
-                                        <th style="padding: 8px 10px !important; font-size: 0.7rem !important;">{{ header }}</th>
-                                    {% endfor %}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in preview_rows %}
-                                    <tr>
-                                        {% for val in row %}
-                                            <td style="padding: 8px 10px !important;">{{ val }}</td>
-                                        {% endfor %}
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <h2 style="font-weight: 800; font-size: 1.8rem; margin: 0 0 0.5rem 0; letter-spacing: -0.02em;" id="lbl-heading">Column Mapping</h2>
+            <p style="color: var(--text-secondary); margin: 0 0 1.5rem 0; font-size: 0.95rem; line-height: 1.4;" id="lbl-subheading">Map the headers from your uploaded file to the required student database fields.</p>
 
-                <!-- Abstract graphic -->
-                <div style="display: flex; justify-content: center; align-items: center;">
-                    <div style="width: 100%; max-width: 140px; opacity: 0.85;">
-                        <svg viewBox="0 0 400 400" width="100%" height="auto" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="100" y="100" width="200" height="200" rx="30" fill="#D8E2DC" opacity="0.6"/>
-                            <circle cx="180" cy="180" r="40" fill="#FFCAD4" opacity="0.8"/>
-                            <circle cx="240" cy="220" r="30" fill="#FFE5D9" opacity="0.9"/>
-                        </svg>
-                    </div>
-                </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left; margin-bottom: 1.5rem;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #EBEAE4;">
+                        <th style="padding: 8px 0; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase;" id="lbl-col-system">System Field</th>
+                        <th style="padding: 8px 0 0 12px; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase;" id="lbl-col-uploaded">Uploaded Column</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #FAF9F6;">
+                        <td style="padding: 10px 0; font-weight: 700; color: #111;" id="lbl-field-gr">
+                            GR / Register No <span style="color: var(--danger);">*</span>
+                        </td>
+                        <td style="padding: 10px 0 10px 12px;">
+                            <select name="gr" class="form-control" required style="padding: 8px 12px; border-radius: 8px; border: 1px solid #EBEAE4; width: 100%; font-size: 0.85rem; background: #faf9f6; color: #111;">
+                                <option value="">-- Select Column --</option>
+                                {% for header in headers %}
+                                    <option value="{{ header }}" {% if header.lower() in ['gr', 'gr_no', 'gr no', 'grnumber', 'gr_number', 'register_no', 'reg_no', 'id'] %}selected{% endif %}>
+                                        {{ header }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #FAF9F6;">
+                        <td style="padding: 10px 0; font-weight: 700; color: #111;" id="lbl-field-name">
+                            Student Name <span style="color: var(--danger);">*</span>
+                        </td>
+                        <td style="padding: 10px 0 10px 12px;">
+                            <select name="name" class="form-control" required style="padding: 8px 12px; border-radius: 8px; border: 1px solid #EBEAE4; width: 100%; font-size: 0.85rem; background: #faf9f6; color: #111;">
+                                <option value="">-- Select Column --</option>
+                                {% for header in headers %}
+                                    <option value="{{ header }}" {% if header.lower() in ['name', 'student_name', 'student name', 'fullname', 'full_name', 'student'] %}selected{% endif %}>
+                                        {{ header }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #FAF9F6;">
+                        <td style="padding: 10px 0; font-weight: 700; color: #111;" id="lbl-field-standard">
+                            Standard / Grade
+                        </td>
+                        <td style="padding: 10px 0 10px 12px;">
+                            <select name="standard" class="form-control" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #EBEAE4; width: 100%; font-size: 0.85rem; background: #faf9f6; color: #111;">
+                                <option value="">-- Ignore Column --</option>
+                                {% for header in headers %}
+                                    <option value="{{ header }}" {% if header.lower() in ['std', 'standard', 'grade', 'class'] %}selected{% endif %}>
+                                        {{ header }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #FAF9F6;">
+                        <td style="padding: 10px 0; font-weight: 700; color: #111;" id="lbl-field-roll">
+                            Roll Number
+                        </td>
+                        <td style="padding: 10px 0 10px 12px;">
+                            <select name="roll_number" class="form-control" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #EBEAE4; width: 100%; font-size: 0.85rem; background: #faf9f6; color: #111;">
+                                <option value="">-- Ignore Column --</option>
+                                {% for header in headers %}
+                                    <option value="{{ header }}" {% if header.lower() in ['roll', 'roll_no', 'roll no', 'rollnumber', 'roll_number'] %}selected{% endif %}>
+                                        {{ header }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #FAF9F6;">
+                        <td style="padding: 10px 0; font-weight: 700; color: #111;" id="lbl-field-division">
+                            Division / Section
+                        </td>
+                        <td style="padding: 10px 0 10px 12px;">
+                            <select name="division" class="form-control" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #EBEAE4; width: 100%; font-size: 0.85rem; background: #faf9f6; color: #111;">
+                                <option value="">-- Ignore Column --</option>
+                                {% for header in headers %}
+                                    <option value="{{ header }}" {% if header.lower() in ['div', 'division', 'sec', 'section'] %}selected{% endif %}>
+                                        {{ header }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Form Action Buttons inside card -->
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <button type="submit" class="btn-primary-orange" id="lbl-btn-continue" style="width: 100%;">Continue</button>
+                <a href="/school/projects/{{ project._id }}/import" class="btn-secondary-light" id="lbl-btn-back" style="width: 100%;">Back</a>
             </div>
         </div>
 
-        <!-- Footer Buttons always in viewport -->
-        <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end; border-top: 1px solid #EBEAE4; padding-top: 1rem; margin-bottom: 0.5rem;">
-            <a href="/school/projects/{{ project._id }}/import" class="btn-secondary-light" id="lbl-btn-back">Back</a>
-            <button type="submit" class="btn-primary-dark" id="lbl-btn-continue">Continue</button>
+        <!-- Data Preview Accordion below the card -->
+        <div class="upload-guidelines-accordion" style="margin-top: 1.5rem;">
+            <button type="button" class="upload-guidelines-header" onclick="togglePreview()">
+                <span id="lbl-preview-title" style="font-weight: 700;">Data Preview (Top 5 rows)</span>
+                <span id="preview-icon" style="transition: transform 0.2s ease; font-size: 0.75rem;">▼</span>
+            </button>
+            <div class="upload-guidelines-content" id="preview-content">
+                <div class="table-container" style="max-height: 250px; overflow: auto; border: 1px solid #EBEAE4; border-radius: 12px; font-size: 0.8rem; background: #ffffff;">
+                    <table class="enhanced-table" style="font-size: 0.75rem; width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #faf9f6; border-bottom: 1px solid #EBEAE4;">
+                                {% for header in headers %}
+                                    <th style="padding: 10px 12px; font-weight: 700; text-align: left;">{{ header }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in preview_rows %}
+                                <tr style="border-bottom: 1px solid #FAF9F6;">
+                                    {% for val in row %}
+                                        <td style="padding: 10px 12px; color: #5C5A56;">{{ val }}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </form>
 </div>
@@ -230,5 +225,12 @@
     }
 
     setLanguage(currentLang);
+
+    function togglePreview() {
+        const content = document.getElementById('preview-content');
+        const icon = document.getElementById('preview-icon');
+        const isOpen = content.classList.toggle('open');
+        icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
 </script>
 {% endblock %}

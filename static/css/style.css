@@ -1516,3 +1516,115 @@ textarea.form-control {
     pointer-events: none;
     transition: opacity 0.15s ease;
 }
+
+/* Excel Redesign Styles */
+.school-admin-portal .upload-centered-card {
+    background: #ffffff;
+    border: 1px solid #EBEAE4;
+    border-radius: 24px;
+    padding: 2.5rem 2rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.02);
+    max-width: 540px;
+    width: 100%;
+    margin: 2rem auto 1.5rem auto;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.school-admin-portal .upload-illustration-container {
+    position: relative;
+    width: 260px;
+    height: 180px;
+    margin: 0 auto 1.5rem auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.school-admin-portal .upload-ill-bg {
+    position: absolute;
+    border-radius: 50%;
+    z-index: 1;
+}
+
+.school-admin-portal .upload-ill-bg.orange {
+    background-color: #F78C22; /* brand orange */
+}
+
+.school-admin-portal .upload-ill-bg.yellow {
+    background-color: #F7D116; /* brand yellow */
+}
+
+.school-admin-portal .upload-ill-bg.teal {
+    background-color: #02858D; /* brand teal */
+}
+
+.school-admin-portal .upload-ill-fg {
+    position: relative;
+    z-index: 2;
+    max-width: 100%;
+    max-height: 100%;
+    height: auto;
+    display: block;
+}
+
+.school-admin-portal .btn-primary-orange {
+    background-color: #f78c22 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 30px !important;
+    padding: 14px 36px !important;
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-decoration: none !important;
+    box-shadow: 0 4px 12px rgba(247, 140, 34, 0.15) !important;
+}
+
+.school-admin-portal .btn-primary-orange:hover {
+    background-color: #e07718 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 16px rgba(247, 140, 34, 0.25) !important;
+}
+
+.school-admin-portal .upload-guidelines-accordion {
+    max-width: 540px;
+    width: 100%;
+    margin: 0 auto 3rem auto;
+    border: 1px solid #EBEAE4;
+    border-radius: 16px;
+    background: #FFFDF9;
+    overflow: hidden;
+    text-align: left;
+}
+
+.school-admin-portal .upload-guidelines-header {
+    width: 100%;
+    padding: 1rem 1.25rem;
+    background: none;
+    border: none;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #111;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.school-admin-portal .upload-guidelines-content {
+    padding: 0 1.25rem 1.25rem 1.25rem;
+    font-size: 0.85rem;
+    color: #5C5A56;
+    display: none;
+}
+
+.school-admin-portal .upload-guidelines-content.open {
+    display: block;
+}
+

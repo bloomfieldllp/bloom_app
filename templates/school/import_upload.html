@@ -20,92 +20,84 @@
         </div>
     </div>
 
-    <!-- Main Content Area -->
-    <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 2rem; align-items: center; flex-grow: 1;">
-        <!-- Left: Form and Dropzone -->
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h2 style="font-weight: 800; font-size: 1.8rem; margin: 0; letter-spacing: -0.02em;" id="lbl-heading">Browse the Excel file</h2>
-                    <p style="color: var(--text-secondary); margin: 0.25rem 0 0 0; font-size: 0.95rem;" id="lbl-subheading">Select the Excel file that contains student information.</p>
+    <!-- Main Centered Content Card -->
+    <div class="upload-centered-card">
+        <!-- Center illustration with overlapping background blobs -->
+        <div class="upload-illustration-container">
+            <div class="upload-ill-bg orange" style="width: 140px; height: 140px; top: 15px; left: 45px; opacity: 0.9;"></div>
+            <div class="upload-ill-bg yellow" style="width: 60px; height: 60px; top: 80px; left: 155px; opacity: 0.9;"></div>
+            <img src="/static/images/SVG_files/Asset 5.svg" alt="Select excel file" class="upload-ill-fg" style="max-height: 160px;">
+        </div>
+
+        <h2 style="font-weight: 800; font-size: 1.8rem; margin: 0 0 0.5rem 0; letter-spacing: -0.02em;" id="lbl-heading">Browse the Excel file</h2>
+        <p style="color: var(--text-secondary); margin: 0 0 1.5rem 0; font-size: 0.95rem; line-height: 1.4;" id="lbl-subheading">Select the Excel file that contains student information.</p>
+
+        <!-- Language Selector pill -->
+        <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
+            <div class="lang-selector">
+                <button type="button" class="lang-btn active" id="btn-lang-eng" onclick="setLanguage('ENG')">ENG</button>
+                <button type="button" class="lang-btn" id="btn-lang-guj" onclick="setLanguage('GUJ')">GUJ</button>
+            </div>
+        </div>
+
+        <!-- Form and Dropzone inside card -->
+        <form action="/school/projects/{{ project._id }}/preview" method="POST" enctype="multipart/form-data" id="upload-form" onsubmit="showUploadingState()">
+            <div id="dropzone-card" style="margin-bottom: 1.5rem;">
+                <input type="file" id="files" name="files" accept=".csv, .xlsx, .xls" style="display: none;" required multiple onchange="handleFileSelect()">
+                
+                <!-- Drag and drop zone -->
+                <label for="files" id="drop-area" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed #EBEAE4; border-radius: 16px; padding: 2.5rem 1.5rem; text-align: center; background: #faf9f6; transition: all 0.2s ease;">
+                    <span style="font-size: 2.5rem; margin-bottom: 0.5rem;">📁</span>
+                    <span id="lbl-file-prompt" style="font-weight: 700; color: #111;">Click to browse files</span>
+                    <p id="lbl-file-supports" style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.25rem 0 0 0;">Supports multiple CSV, XLSX, XLS formats</p>
+                </label>
+
+                <!-- Selected file state -->
+                <div id="file-details-container" style="display: none; align-items: center; justify-content: space-between; background: #F5F4EE; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid #EBEAE4;">
+                    <div style="display: flex; align-items: center; gap: 10px; text-align: left;">
+                        <span style="font-size: 1.5rem;">📄</span>
+                        <div style="display: flex; flex-direction: column;">
+                            <span id="file-name" style="font-weight: 700; font-size: 0.9rem; color: #111; word-break: break-all;">file_name.xlsx</span>
+                            <span id="file-size" style="font-size: 0.75rem; color: var(--text-secondary);">45 KB</span>
+                        </div>
+                    </div>
+                    <button type="button" onclick="clearFileSelection()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-secondary); padding: 5px; line-height: 1;">&times;</button>
                 </div>
-                <!-- Language Selector control -->
-                <div class="lang-selector">
-                    <button type="button" class="lang-btn active" id="btn-lang-eng" onclick="setLanguage('ENG')">ENG</button>
-                    <button type="button" class="lang-btn" id="btn-lang-guj" onclick="setLanguage('GUJ')">GUJ</button>
+
+                <!-- Uploading progress spinner -->
+                <div id="uploading-container" style="display: none; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 0; gap: 0.75rem;">
+                    <div class="skeleton-shimmer" style="width: 100%; height: 8px;"></div>
+                    <span id="lbl-uploading" style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">Uploading your file...</span>
                 </div>
             </div>
 
             {% if error %}
-                <div class="alert alert-danger" style="margin: 0; padding: 0.75rem 1rem; border-radius: 8px;">
+                <div class="alert alert-danger" style="margin-bottom: 1.5rem; padding: 0.75rem 1rem; border-radius: 8px; text-align: left;">
                     {{ error }}
                 </div>
             {% endif %}
 
-            <!-- Form -->
-            <form action="/school/projects/{{ project._id }}/preview" method="POST" enctype="multipart/form-data" id="upload-form" onsubmit="showUploadingState()">
-                <div class="admin-card" style="padding: 1.5rem;" id="dropzone-card">
-                    <input type="file" id="files" name="files" accept=".csv, .xlsx, .xls" style="display: none;" required multiple onchange="handleFileSelect()">
-                    
-                    <!-- Drag and drop zone -->
-                    <label for="files" id="drop-area" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed #EBEAE4; border-radius: 16px; padding: 2rem; text-align: center; background: #faf9f6; transition: all 0.2s ease;">
-                        <span style="font-size: 2.5rem; margin-bottom: 0.5rem;">📁</span>
-                        <span id="lbl-file-prompt" style="font-weight: 700; color: #111;">Click to browse files</span>
-                        <p id="lbl-file-supports" style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.25rem 0 0 0;">Supports multiple CSV, XLSX, XLS formats</p>
-                    </label>
-
-                    <!-- Selected file state wrapper -->
-                    <div id="file-details-container" style="display: none; align-items: center; justify-content: space-between; background: #F5F4EE; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid #EBEAE4; margin-top: 1rem;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 1.5rem;">📄</span>
-                            <div style="display: flex; flex-direction: column;">
-                                <span id="file-name" style="font-weight: 700; font-size: 0.9rem; color: #111; word-break: break-all;">file_name.xlsx</span>
-                                <span id="file-size" style="font-size: 0.75rem; color: var(--text-secondary);">45 KB</span>
-                            </div>
-                        </div>
-                        <button type="button" onclick="clearFileSelection()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-secondary); padding: 5px; line-height: 1;">&times;</button>
-                    </div>
-
-                    <!-- Uploading progress spinner -->
-                    <div id="uploading-container" style="display: none; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 0; gap: 0.75rem;">
-                        <div class="skeleton-bar" style="width: 100%; height: 8px;"></div>
-                        <span id="lbl-uploading" style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">Uploading your file...</span>
-                    </div>
-                </div>
-
-                <!-- Footer buttons aligned to bottom of screen -->
-                <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
-                    <a href="/school" class="btn-secondary-light" id="lbl-btn-cancel">Cancel</a>
-                    <button type="button" class="btn-primary-dark" id="btn-submit-action">Browse Excel File</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Right: Abstract Illustration & Guidelines -->
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-            <!-- Guidelines card -->
-            <div class="admin-card" style="padding: 1.5rem; background: #FFFDF9;">
-                <h4 style="margin: 0 0 0.75rem 0; font-weight: 700; font-size: 1rem; color: #111;" id="lbl-guidelines-header">Required Fields Guidelines</h4>
-                <ul style="font-size: 0.85rem; color: var(--text-secondary); margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;">
-                    <li id="lbl-guide1"><strong>GR</strong>: General Register Number (Unique identifier per student).</li>
-                    <li id="lbl-guide2"><strong>Name</strong>: Student's full name.</li>
-                    <li id="lbl-guide3"><strong>Standard</strong>: Grade/Class (e.g. 1, 2, 8, 10).</li>
-                    <li id="lbl-guide4">Roll Number & Division are optional but recommended.</li>
-                </ul>
+            <!-- Form Action Buttons inside card -->
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <button type="button" class="btn-primary-orange" id="btn-submit-action" style="width: 100%;">Browse Excel File</button>
+                <a href="/school" class="btn-secondary-light" id="lbl-btn-cancel" style="width: 100%;">Cancel</a>
             </div>
-            
-            <!-- Graphic -->
-            <div style="display: flex; justify-content: center; align-items: center;">
-                <div style="width: 100%; max-width: 280px; opacity: 0.95;">
-                    <svg viewBox="0 0 400 400" width="100%" height="auto" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="200" cy="200" r="150" fill="#F4EFE3" opacity="0.5"/>
-                        <rect x="130" y="140" width="140" height="120" rx="16" fill="#D8E2DC" opacity="0.8"/>
-                        <circle cx="200" cy="200" r="35" fill="#FFE5D9" opacity="0.9"/>
-                        <path d="M120 180C140 130 260 130 280 180" stroke="#2C2C2A" stroke-width="3" stroke-linecap="round"/>
-                        <circle cx="200" cy="200" r="15" fill="#2C2C2A"/>
-                    </svg>
-                </div>
-            </div>
+        </form>
+    </div>
+
+    <!-- Expandable guidelines accordion below the card -->
+    <div class="upload-guidelines-accordion">
+        <button type="button" class="upload-guidelines-header" onclick="toggleGuidelines()">
+            <span id="lbl-guidelines-header">Required Fields Guidelines</span>
+            <span id="guidelines-icon" style="transition: transform 0.2s ease; font-size: 0.75rem;">▼</span>
+        </button>
+        <div class="upload-guidelines-content" id="guidelines-content">
+            <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; line-height: 1.4;">
+                <li id="lbl-guide1"><strong>GR</strong>: General Register Number (Unique identifier per student).</li>
+                <li id="lbl-guide2"><strong>Name</strong>: Student's full name.</li>
+                <li id="lbl-guide3"><strong>Standard</strong>: Grade/Class (e.g. 1, 2, 8, 10).</li>
+                <li id="lbl-guide4">Roll Number & Division are optional but recommended.</li>
+            </ul>
         </div>
     </div>
 </div>
@@ -247,6 +239,13 @@
         document.getElementById('uploading-container').style.display = 'flex';
         document.getElementById('lbl-btn-cancel').style.pointerEvents = 'none';
         document.getElementById('btn-submit-action').disabled = true;
+    }
+
+    function toggleGuidelines() {
+        const content = document.getElementById('guidelines-content');
+        const icon = document.getElementById('guidelines-icon');
+        const isOpen = content.classList.toggle('open');
+        icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 </script>
 {% endblock %}
