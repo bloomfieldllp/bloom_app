@@ -17,13 +17,6 @@ from utils import get_templates
 router = APIRouter(prefix="/school", dependencies=[Depends(RoleChecker(["school_admin"]))])
 templates = get_templates()
 
-# Ensure uploads directory exists (use /tmp/uploads in serverless read-only environments)
-if os.environ.get("VERCEL") or not os.access(".", os.W_OK):
-    UPLOAD_DIR = "/tmp/uploads"
-else:
-    UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 @router.get("", response_class=HTMLResponse)
 async def school_dashboard(request: Request, user = Depends(RoleChecker(["school_admin"]))):
     school_id = user["school_id"]
