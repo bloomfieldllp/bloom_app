@@ -690,6 +690,45 @@ async def trigger_retake(
         
     return {"status": "success", "version": state["version"]}
 
+def get_student_export_row(s: Dict[str, Any], photo: Optional[Dict[str, Any]], all_raw_keys: List[str]) -> Dict[str, Any]:
+    row_data = {}
+    raw = s.get("raw_data")
+    if not isinstance(raw, dict):
+        raw = {}
+        
+    for k in all_raw_keys:
+        if k in raw:
+            val = raw[k]
+            row_data[k] = val if val is not None else ""
+        else:
+            # Fallback to standard fields if not in raw_data
+            k_lower = k.lower()
+            if "id" in k_lower or "gr" in k_lower:
+                row_data[k] = s.get("gr", "")
+            elif "name" in k_lower:
+                row_data[k] = s.get("name", "")
+            elif "class" in k_lower or "std" in k_lower or "grade" in k_lower:
+                row_data[k] = get_student_standard(s)
+            elif "section" in k_lower or "div" in k_lower:
+                row_data[k] = get_student_division(s)
+            elif "roll" in k_lower:
+                row_data[k] = s.get("roll_number") or ""
+            else:
+                row_data[k] = ""
+                
+    # Append photo details
+    status_label = "Completed" if s.get("photo_status") == "captured" else s.get("photo_status", "not_captured").replace("_", " ").title()
+    captured_time = ""
+    if photo and photo.get("captured_at"):
+        c_at = photo["captured_at"]
+        captured_time = c_at if isinstance(c_at, str) else c_at.strftime('%Y-%m-%d %H:%M:%S')
+        
+    row_data["Photo Filename"] = photo["final_filename"] if photo else "—"
+    row_data["Photo Path"] = photo["relative_path"] if photo else "—"
+    row_data["Photo Status"] = status_label
+    row_data["Captured At"] = captured_time
+    return row_data
+
 @router.get("/projects/{project_id}/export/excel")
 async def export_excel(project_id: str, user = Depends(RoleChecker(["bloom_operator"]))):
     if settings.IS_LOCAL_OPERATOR:
@@ -698,26 +737,22 @@ async def export_excel(project_id: str, user = Depends(RoleChecker(["bloom_opera
             raise HTTPException(status_code=404, detail="Project not found")
         students = LocalDB.list_students(project_id)
         
+        # Collect all raw_data keys
+        all_raw_keys = []
+        for s in students:
+            raw = s.get("raw_data")
+            if isinstance(raw, dict):
+                for k in raw.keys():
+                    if k not in all_raw_keys:
+                        all_raw_keys.append(k)
+        if not all_raw_keys:
+            all_raw_keys = ["Student ID", "Student Name", "Class", "Section", "Roll Number"]
+            
         data = []
         for s in students:
             s_id = s["id"]
             photo = LocalDB.get_current_photo(s_id)
-            captured_time = ""
-            if photo and photo.get("captured_at"):
-                captured_time = photo["captured_at"]
-            status_label = "Completed" if s.get("photo_status") == "captured" else s.get("photo_status", "not_captured").replace("_", " ").title()
-            
-            data.append({
-                "Student ID": s.get("gr", ""),
-                "Student Name": s.get("name", ""),
-                "Class": get_student_standard(s),
-                "Section": get_student_division(s),
-                "Roll Number": s.get("roll_number", ""),
-                "Photo Filename": photo["final_filename"] if photo else "—",
-                "Photo Path": photo["relative_path"] if photo else "—",
-                "Photo Status": status_label,
-                "Captured At": captured_time
-            })
+            data.append(get_student_export_row(s, photo, all_raw_keys))
     else:
         db = get_db()
         project = db.projects.find_one({"_id": ObjectId(project_id)})
@@ -731,27 +766,22 @@ async def export_excel(project_id: str, user = Depends(RoleChecker(["bloom_opera
         })
         photos_map = {p["student_id"]: p for p in photos_cursor}
         
+        # Collect all raw_data keys
+        all_raw_keys = []
+        for s in students:
+            raw = s.get("raw_data")
+            if isinstance(raw, dict):
+                for k in raw.keys():
+                    if k not in all_raw_keys:
+                        all_raw_keys.append(k)
+        if not all_raw_keys:
+            all_raw_keys = ["Student ID", "Student Name", "Class", "Section", "Roll Number"]
+            
         data = []
         for s in students:
             s_id = str(s["_id"])
             photo = photos_map.get(s_id)
-            captured_time = ""
-            if photo and photo.get("captured_at"):
-                c_at = photo["captured_at"]
-                captured_time = c_at if isinstance(c_at, str) else c_at.strftime('%Y-%m-%d %H:%M:%S')
-            status_label = "Completed" if s.get("photo_status") == "captured" else s.get("photo_status", "not_captured").replace("_", " ").title()
-            
-            data.append({
-                "Student ID": s.get("gr", ""),
-                "Student Name": s.get("name", ""),
-                "Class": get_student_standard(s),
-                "Section": get_student_division(s),
-                "Roll Number": s.get("roll_number", ""),
-                "Photo Filename": photo["final_filename"] if photo else "—",
-                "Photo Path": photo["relative_path"] if photo else "—",
-                "Photo Status": status_label,
-                "Captured At": captured_time
-            })
+            data.append(get_student_export_row(s, photo, all_raw_keys))
             
     df = pd.DataFrame(data)
     output = io.BytesIO()
@@ -771,26 +801,22 @@ async def export_csv(project_id: str, user = Depends(RoleChecker(["bloom_operato
             raise HTTPException(status_code=404, detail="Project not found")
         students = LocalDB.list_students(project_id)
         
+        # Collect all raw_data keys
+        all_raw_keys = []
+        for s in students:
+            raw = s.get("raw_data")
+            if isinstance(raw, dict):
+                for k in raw.keys():
+                    if k not in all_raw_keys:
+                        all_raw_keys.append(k)
+        if not all_raw_keys:
+            all_raw_keys = ["Student ID", "Student Name", "Class", "Section", "Roll Number"]
+            
         data = []
         for s in students:
             s_id = s["id"]
             photo = LocalDB.get_current_photo(s_id)
-            captured_time = ""
-            if photo and photo.get("captured_at"):
-                captured_time = photo["captured_at"]
-            status_label = "Completed" if s.get("photo_status") == "captured" else s.get("photo_status", "not_captured").replace("_", " ").title()
-            
-            data.append({
-                "Student ID": s.get("gr", ""),
-                "Student Name": s.get("name", ""),
-                "Class": get_student_standard(s),
-                "Section": get_student_division(s),
-                "Roll Number": s.get("roll_number", ""),
-                "Photo Filename": photo["final_filename"] if photo else "—",
-                "Photo Path": photo["relative_path"] if photo else "—",
-                "Photo Status": status_label,
-                "Captured At": captured_time
-            })
+            data.append(get_student_export_row(s, photo, all_raw_keys))
     else:
         db = get_db()
         project = db.projects.find_one({"_id": ObjectId(project_id)})
@@ -804,27 +830,22 @@ async def export_csv(project_id: str, user = Depends(RoleChecker(["bloom_operato
         })
         photos_map = {p["student_id"]: p for p in photos_cursor}
         
+        # Collect all raw_data keys
+        all_raw_keys = []
+        for s in students:
+            raw = s.get("raw_data")
+            if isinstance(raw, dict):
+                for k in raw.keys():
+                    if k not in all_raw_keys:
+                        all_raw_keys.append(k)
+        if not all_raw_keys:
+            all_raw_keys = ["Student ID", "Student Name", "Class", "Section", "Roll Number"]
+            
         data = []
         for s in students:
             s_id = str(s["_id"])
             photo = photos_map.get(s_id)
-            captured_time = ""
-            if photo and photo.get("captured_at"):
-                c_at = photo["captured_at"]
-                captured_time = c_at if isinstance(c_at, str) else c_at.strftime('%Y-%m-%d %H:%M:%S')
-            status_label = "Completed" if s.get("photo_status") == "captured" else s.get("photo_status", "not_captured").replace("_", " ").title()
-            
-            data.append({
-                "Student ID": s.get("gr", ""),
-                "Student Name": s.get("name", ""),
-                "Class": get_student_standard(s),
-                "Section": get_student_division(s),
-                "Roll Number": s.get("roll_number", ""),
-                "Photo Filename": photo["final_filename"] if photo else "—",
-                "Photo Path": photo["relative_path"] if photo else "—",
-                "Photo Status": status_label,
-                "Captured At": captured_time
-            })
+            data.append(get_student_export_row(s, photo, all_raw_keys))
             
     df = pd.DataFrame(data)
     output = io.StringIO()

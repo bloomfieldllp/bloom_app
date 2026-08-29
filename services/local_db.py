@@ -80,7 +80,8 @@ class LocalDB:
                         photo_filename TEXT,
                         photo_path TEXT,
                         updated_at TEXT NOT NULL,
-                        local_updated_at TEXT
+                        local_updated_at TEXT,
+                        raw_data TEXT
                     );
                 """)
                 # Student Photos table
@@ -143,6 +144,16 @@ class LocalDB:
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_pending_ops_sync ON pending_operations(sync_status, created_at);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_id ON sessions(id);")
                 
+                # Migration check for raw_data column
+                cursor = conn.execute("PRAGMA table_info(students)")
+                columns = [info[1] for info in cursor.fetchall()]
+                if columns and "raw_data" not in columns:
+                    try:
+                        conn.execute("ALTER TABLE students ADD COLUMN raw_data TEXT;")
+                        logger.info("Added raw_data column to students table.")
+                    except Exception as alter_err:
+                        logger.error(f"Failed to add raw_data column: {alter_err}")
+
                 logger.info("Local SQLite database initialized.")
         except Exception as e:
             logger.error(f"Failed to initialize SQLite database: {e}")
@@ -321,11 +332,18 @@ class LocalDB:
     @classmethod
     def save_student(cls, student: Dict[str, Any]):
         conn = cls.get_connection()
+        raw_data_str = None
+        if "raw_data" in student:
+            if isinstance(student["raw_data"], (dict, list)):
+                raw_data_str = json.dumps(student["raw_data"])
+            elif isinstance(student["raw_data"], str):
+                raw_data_str = student["raw_data"]
+
         try:
             with conn:
                 conn.execute("""
-                    INSERT INTO students (id, name, gr, standard, division, roll_number, school_id, project_id, photo_status, photo_filename, photo_path, updated_at, local_updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO students (id, name, gr, standard, division, roll_number, school_id, project_id, photo_status, photo_filename, photo_path, updated_at, local_updated_at, raw_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         name=excluded.name,
                         gr=excluded.gr,
@@ -337,7 +355,8 @@ class LocalDB:
                         photo_status=excluded.photo_status,
                         photo_filename=COALESCE(excluded.photo_filename, students.photo_filename),
                         photo_path=COALESCE(excluded.photo_path, students.photo_path),
-                        updated_at=excluded.updated_at
+                        updated_at=excluded.updated_at,
+                        raw_data=excluded.raw_data
                 """, (
                     str(student.get("_id") or student.get("id")),
                     student.get("name", ""),
@@ -351,7 +370,8 @@ class LocalDB:
                     student.get("photo_filename"),
                     student.get("photo_path"),
                     student.get("updated_at", datetime.now(timezone.utc).isoformat()),
-                    student.get("local_updated_at")
+                    student.get("local_updated_at"),
+                    raw_data_str
                 ))
         finally:
             conn.close()
@@ -367,6 +387,13 @@ class LocalDB:
                 s["class_name"] = s["standard"]
                 s["section"] = s["division"]
                 s["_id"] = s["id"]
+                if s.get("raw_data"):
+                    try:
+                        s["raw_data"] = json.loads(s["raw_data"])
+                    except Exception:
+                        s["raw_data"] = {}
+                else:
+                    s["raw_data"] = {}
                 return s
             return None
         finally:
@@ -383,6 +410,13 @@ class LocalDB:
                 s["class_name"] = s["standard"]
                 s["section"] = s["division"]
                 s["_id"] = s["id"]
+                if s.get("raw_data"):
+                    try:
+                        s["raw_data"] = json.loads(s["raw_data"])
+                    except Exception:
+                        s["raw_data"] = {}
+                else:
+                    s["raw_data"] = {}
                 students.append(s)
             return students
         finally:

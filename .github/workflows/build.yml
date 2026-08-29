@@ -24,13 +24,9 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Download VC++ Redistributable
-        run: |
-          curl -L -o vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
-
       - name: Build Standalone Executable
         run: |
-          pyinstaller BloomOperator.spec --noconfirm
+          pyinstaller --name="BloomOperator" --onedir --add-data="templates;templates" --add-data="static;static" main.py
 
       - name: Compile Windows Setup Installer
         run: |
