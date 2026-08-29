@@ -5,7 +5,7 @@
 {% block content %}
 <div class="school-admin-portal" style="max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
     <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #EBEAE4; padding-bottom: 1rem; margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #EBEAE4; padding-bottom: 1rem; margin-top: 1rem; flex-wrap: wrap; gap: 1rem;">
         <div>
             <a href="/school" style="text-decoration: none; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                 <span>←</span> Back to Dashboard
@@ -42,7 +42,8 @@
               hx-get="/school/projects/{{ project._id }}/students" 
               hx-target="#student-table-container" 
               hx-trigger="change, keyup delay:300ms from:#search-input"
-              style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr; gap: 1rem; align-items: end;">
+              class="student-filters-grid"
+              style="margin: 0;">
             
             <!-- Search bar -->
             <div style="display: flex; flex-direction: column; gap: 0.4rem;">

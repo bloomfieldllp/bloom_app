@@ -1628,3 +1628,60 @@ textarea.form-control {
     display: block;
 }
 
+/* Responsive adjustments for school portal screens */
+.school-admin-portal .dashboard-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    align-items: center;
+}
+
+@media (min-width: 768px) {
+    .school-admin-portal .dashboard-layout {
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 2.5rem;
+    }
+}
+
+.school-admin-portal .preview-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 600px) {
+    .school-admin-portal .preview-stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.school-admin-portal .student-filters-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    align-items: end;
+}
+
+@media (min-width: 768px) {
+    .school-admin-portal .student-filters-grid {
+        grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .school-admin-portal .stat-card-row {
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    .school-admin-portal .stat-box {
+        padding: 0.75rem 0.5rem;
+        border-radius: 12px;
+    }
+    .school-admin-portal .stat-box-label {
+        font-size: 0.65rem;
+        margin-bottom: 0.15rem;
+        letter-spacing: 0.02em;
+    }
+    .school-admin-portal .stat-box-value {
+        font-size: 1.25rem;
+    }
+}
+
