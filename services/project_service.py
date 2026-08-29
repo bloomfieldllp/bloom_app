@@ -269,14 +269,6 @@ class ProjectService:
             pending = total - photographed
             projects_count = db.projects.count_documents({"school_id": school_id})
             
-            if total == 0 and projects_count == 0:
-                return {
-                    "total_students": 120,
-                    "photographed_students": 45,
-                    "pending_students": 75,
-                    "projects_count": 1
-                }
-                
             return {
                 "total_students": total,
                 "photographed_students": photographed,
@@ -285,8 +277,8 @@ class ProjectService:
             }
         except Exception:
             return {
-                "total_students": 120,
-                "photographed_students": 45,
-                "pending_students": 75,
-                "projects_count": 1
+                "total_students": 0,
+                "photographed_students": 0,
+                "pending_students": 0,
+                "projects_count": 0
             }
