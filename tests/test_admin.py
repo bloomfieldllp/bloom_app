@@ -259,3 +259,35 @@ def test_create_user_duplicate_phone_validation(client, mock_db):
     assert "value=\"duplicate@test.com\"" in dup_resp.text
     assert "value=\"9898980001\"" in dup_resp.text
 
+
+def test_hm_user_auto_creation_and_manual_linking(mock_db):
+    db = get_db()
+    # 1. Create a school with HM contact details
+    school_id = SchoolService.create_school({
+        "name": "Manual HM High",
+        "school_code": "MNL001",
+        "hm_name": "Principal Skinner",
+        "hm_phone": "9998881234",
+        "location_link": "https://maps.google.com/test"
+    })
+    
+    # Manually unlink HM user to simulate missing user status
+    db.schools.update_one({"_id": ObjectId(school_id)}, {"$set": {"hm.user_id": None}})
+    db.users.delete_many({"phone": "9998881234"})
+    
+    school = db.schools.find_one({"_id": ObjectId(school_id)})
+    assert school["hm"]["user_id"] is None
+    
+    # 2. Run auto_create_missing_hm_users()
+    SchoolService.auto_create_missing_hm_users()
+    
+    # Verify user was created and linked
+    school = db.schools.find_one({"_id": ObjectId(school_id)})
+    assert school["hm"]["user_id"] is not None
+    
+    hm_user = db.users.find_one({"phone": "9998881234"})
+    assert hm_user is not None
+    assert hm_user["name"] == "Principal Skinner"
+    assert hm_user["role"] == "school_admin"
+    assert hm_user["school_id"] == school_id
+

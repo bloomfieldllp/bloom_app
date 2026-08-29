@@ -324,6 +324,16 @@ async def schools_directory(
     schools = list(db.schools.find(query))
     for s in schools:
         s["_id"] = str(s["_id"])
+        # Ensure hm nested fields are also accessible at top level for the directory template
+        if "hm" in s and isinstance(s["hm"], dict):
+            s["hm_name"] = s["hm"].get("name", "")
+            s["hm_phone"] = s["hm"].get("phone", "")
+            s["hm_user_id"] = s["hm"].get("user_id", "")
+        else:
+            s["hm_name"] = s.get("hm_name", "")
+            s["hm_phone"] = s.get("hm_phone", "")
+            s["hm_user_id"] = s.get("hm_user_id", "")
+            
     return templates.TemplateResponse(request=request, name="admin/schools_directory.html", context={
         "user": user,
         "schools": schools,
@@ -390,3 +400,51 @@ async def create_project_page(request: Request, user = Depends(RoleChecker(["blo
 async def quick_project_page(request: Request, user = Depends(RoleChecker(["bloom_admin"]))):
     schools = SchoolService.list_schools()
     return templates.TemplateResponse(request=request, name="admin/quick_project.html", context={"user": user, "schools": schools})
+
+@router.post("/schools/{school_id}/create-hm-user")
+async def create_school_hm_user(school_id: str, user = Depends(RoleChecker(["bloom_admin"]))):
+    db = get_db()
+    school = db.schools.find_one({"_id": ObjectId(school_id)})
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+        
+    hm = school.get("hm", {})
+    hm_name = hm.get("name")
+    hm_phone = hm.get("phone")
+    
+    if not hm_name or hm_name == "_" or not hm_phone or hm_phone == "_":
+        raise HTTPException(status_code=400, detail="School does not have valid HM contact details.")
+        
+    # Check if user already exists
+    existing_user = db.users.find_one({"phone": hm_phone})
+    if existing_user:
+        # Just link it
+        db.schools.update_one(
+            {"_id": ObjectId(school_id)},
+            {"$set": {"hm.user_id": str(existing_user["_id"])}}
+        )
+        # Ensure role is school_admin and school_id is set
+        db.users.update_one(
+            {"_id": existing_user["_id"]},
+            {"$set": {"role": "school_admin", "school_id": school_id, "user_type": "school_user"}}
+        )
+    else:
+        # Create new
+        from services.auth_service import AuthService
+        hm_user_id = AuthService.create_user({
+            "name": hm_name,
+            "phone": hm_phone,
+            "email": school.get("school_email"),
+            "user_type": "school_user",
+            "role": "school_admin",
+            "school_id": school_id,
+            "class_assignments": [],
+            "status": "active",
+            "password": "Swami@2003",
+            "created_by": user["id"]
+        })
+        db.schools.update_one(
+            {"_id": ObjectId(school_id)},
+            {"$set": {"hm.user_id": hm_user_id}}
+        )
+    return RedirectResponse(url="/admin/schools/directory", status_code=303)

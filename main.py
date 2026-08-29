@@ -91,7 +91,13 @@ def release_single_instance():
 async def lifespan(app: FastAPI):
     # Startup actions
     init_db()
-    if settings.IS_LOCAL_OPERATOR:
+    if not settings.IS_LOCAL_OPERATOR:
+        try:
+            from services.school_service import SchoolService
+            SchoolService.auto_create_missing_hm_users()
+        except Exception as e:
+            logger.error(f"Failed to auto-create missing HM users: {e}")
+    else:
         try:
             from services.sync_service import SyncService
             SyncService.start_service()

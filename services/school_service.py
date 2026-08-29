@@ -326,3 +326,60 @@ class SchoolService:
             return result.modified_count > 0
         except Exception:
             return True
+
+    @staticmethod
+    def auto_create_missing_hm_users():
+        db = get_db()
+        try:
+            schools = list(db.schools.find())
+            for school in schools:
+                school_id = str(school["_id"])
+                hm = school.get("hm", {})
+                hm_name = hm.get("name")
+                hm_phone = hm.get("phone")
+                hm_user_id = hm.get("user_id")
+                
+                if not hm_name or hm_name == "_" or not hm_phone or hm_phone == "_":
+                    continue
+                    
+                # If there's no user_id, or the referenced user doesn't exist
+                user_exists = False
+                if hm_user_id:
+                    try:
+                        user_exists = db.users.find_one({"_id": ObjectId(hm_user_id)}) is not None
+                    except Exception:
+                        user_exists = False
+                    
+                if not user_exists:
+                    # Check if user already exists by phone
+                    existing_user = db.users.find_one({"phone": hm_phone})
+                    if existing_user:
+                        db.schools.update_one(
+                            {"_id": ObjectId(school_id)},
+                            {"$set": {"hm.user_id": str(existing_user["_id"])}}
+                        )
+                        logger.info(f"Linked existing HM user to school: {school['name']}")
+                    else:
+                        # Create new user
+                        try:
+                            new_uid = AuthService.create_user({
+                                "name": hm_name,
+                                "phone": hm_phone,
+                                "email": school.get("school_email"),
+                                "user_type": "school_user",
+                                "role": "school_admin",
+                                "school_id": school_id,
+                                "class_assignments": [],
+                                "status": "active",
+                                "password": "Swami@2003",
+                                "created_by": "system"
+                            })
+                            db.schools.update_one(
+                                {"_id": ObjectId(school_id)},
+                                {"$set": {"hm.user_id": new_uid}}
+                            )
+                            logger.info(f"Auto-created missing HM user for school: {school['name']}")
+                        except Exception as e:
+                            logger.error(f"Failed to auto-create HM user for school {school['name']}: {e}")
+        except Exception as e:
+            logger.error(f"Error in auto_create_missing_hm_users: {e}")

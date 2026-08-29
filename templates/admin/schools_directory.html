@@ -64,6 +64,7 @@
                         <th>Contact Email</th>
                         <th>Location</th>
                         <th>Pipeline Status</th>
+                        <th>HM Login User</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -90,6 +91,22 @@
                                 <span class="badge {% if s.status in ['confirmed', 'scheduled', 'in_progress'] %}badge-success{% elif s.status == 'completed' %}badge-secondary{% else %}badge-warning{% endif %}">
                                     {{ (s.status or 'prospect').title() }}
                                 </span>
+                            </td>
+                            <td>
+                                {% if s.hm_user_id %}
+                                    <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                                        <span>Phone: <code>{{ s.hm_phone }}</code></span>
+                                        <a href="/admin/users/directory?school_id={{ s._id }}" class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.75rem; min-height: auto; text-decoration: none; width: fit-content; text-align: center;">Manage User</a>
+                                    </div>
+                                {% else %}
+                                    {% if s.hm_name and s.hm_name != "_" and s.hm_phone and s.hm_phone != "_" %}
+                                        <form action="/admin/schools/{{ s._id }}/create-hm-user" method="POST" style="margin: 0;">
+                                            <button type="submit" class="btn btn-primary" style="padding: 4px 8px; font-size: 0.75rem; min-height: auto; width: 100%;">Create Login</button>
+                                        </form>
+                                    {% else %}
+                                        <span style="color: var(--text-secondary); font-style: italic; font-size: 0.8rem;">No contact details</span>
+                                    {% endif %}
+                                {% endif %}
                             </td>
                         </tr>
                     {% endfor %}
