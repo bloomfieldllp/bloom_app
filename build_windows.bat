@@ -57,6 +57,12 @@ if not exist vc_redist.x64.exe (
     powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vc_redist.x64.exe' -OutFile 'vc_redist.x64.exe'"
 )
 
+echo Installing Microsoft Visual C++ Redistributable ^(may prompt for Administrator privileges^)...
+start /wait vc_redist.x64.exe /install /quiet /norestart
+if !errorlevel! neq 0 (
+    echo [WARNING] VC++ Redistributable installation returned an error. It might already be installed, or you might have denied the Admin prompt. We will continue anyway.
+)
+
 :: 3. Create and activate virtual environment
 echo Creating virtual environment...
 "!PYTHON_EXE!" -m venv venv
