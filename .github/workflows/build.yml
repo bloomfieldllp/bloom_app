@@ -28,6 +28,10 @@ jobs:
         run: |
           pyinstaller --name="BloomOperator" --onedir --add-data="templates;templates" --add-data="static;static" main.py
 
+      - name: Download VC++ Redistributable
+        run: |
+          curl -L -o vc_redist.x64.exe https://aka.ms/vc_redist.x64.exe
+
       - name: Compile Windows Setup Installer
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer_config.iss
