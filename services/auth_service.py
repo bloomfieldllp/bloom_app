@@ -7,8 +7,14 @@ from database import get_db
 from utils import normalize_phone
 from config import settings
 import logging
+import httpx
 
 logger = logging.getLogger("app.auth_service")
+
+# Custom exception for network-related errors (e.g., timeouts)
+class NetworkError(Exception):
+    """Raised when a network error such as a timeout occurs during online authentication."""
+    pass
 
 class AuthService:
     MOCK_SESSIONS = {}
@@ -80,7 +86,7 @@ class AuthService:
                 
                 import time
                 start_time = time.time()
-                res = httpx.post(url, json={"username": search_term, "password": password}, timeout=3.0)
+                res = httpx.post(url, json={"username": search_term, "password": password}, timeout=httpx.Timeout(connect=5.0, read=20.0))
                 elapsed = time.time() - start_time
                 
                 if res.status_code == 200:
