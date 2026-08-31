@@ -86,7 +86,7 @@ class AuthService:
                 
                 import time
                 start_time = time.time()
-                res = httpx.post(url, json={"username": search_term, "password": password}, timeout=httpx.Timeout(connect=5.0, read=20.0))
+                res = httpx.post(url, json={"username": search_term, "password": password}, timeout=httpx.Timeout(10.0, connect=5.0, read=20.0))
                 elapsed = time.time() - start_time
                 
                 if res.status_code == 200:
@@ -193,55 +193,53 @@ class AuthService:
                 pass
 
         # Database offline or user not found, check mock fallback credentials
-        if search_term in ["bloomgrapheteria@gmail.com", "9426407970"] and password in ["Swami@2003", "password123"]:
-            # Seed mock user locally if IS_LOCAL_OPERATOR is enabled
-            mock_user = {
-                "_id": "mock_bloom_admin_id",
-                "name": "Mock Bloom Admin",
-                "email": "bloomgrapheteria@gmail.com",
-                "phone": "9426407970",
-                "role": "bloom_admin",
-                "school_id": None,
-                "status": "active",
-                "password_hash": AuthService.hash_password("password123"),
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-            if settings.IS_LOCAL_OPERATOR:
+        # Mock users are only available on the local Windows operator client
+        if settings.IS_LOCAL_OPERATOR:
+            if search_term in ["bloomgrapheteria@gmail.com", "9426407970"] and password in ["Swami@2003", "password123"]:
+                mock_user = {
+                    "_id": "mock_bloom_admin_id",
+                    "name": "Mock Bloom Admin",
+                    "email": "bloomgrapheteria@gmail.com",
+                    "phone": "9426407970",
+                    "role": "bloom_admin",
+                    "school_id": None,
+                    "status": "active",
+                    "password_hash": AuthService.hash_password("password123"),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
                 from services.local_db import LocalDB
                 LocalDB.save_user(mock_user)
-            return mock_user
-        elif search_term in ["school@bloom.com", "1234567890"] and password in ["password123", "Swami@2003"]:
-            mock_user = {
-                "_id": "mock_school_admin_id",
-                "name": "Mock School Admin",
-                "email": "school@bloom.com",
-                "phone": "1234567890",
-                "role": "school_admin",
-                "school_id": "mock_school_id",
-                "status": "active",
-                "password_hash": AuthService.hash_password("password123"),
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-            if settings.IS_LOCAL_OPERATOR:
+                return mock_user
+            elif search_term in ["school@bloom.com", "1234567890"] and password in ["password123", "Swami@2003"]:
+                mock_user = {
+                    "_id": "mock_school_admin_id",
+                    "name": "Mock School Admin",
+                    "email": "school@bloom.com",
+                    "phone": "1234567890",
+                    "role": "school_admin",
+                    "school_id": "mock_school_id",
+                    "status": "active",
+                    "password_hash": AuthService.hash_password("password123"),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
                 from services.local_db import LocalDB
                 LocalDB.save_user(mock_user)
-            return mock_user
-        elif search_term in ["operator@bloom.com", "9876543210"] and password in ["password123"]:
-            mock_user = {
-                "_id": "mock_operator_id",
-                "name": "Mock Operator",
-                "email": "operator@bloom.com",
-                "phone": "9876543210",
-                "role": "bloom_operator",
-                "school_id": None,
-                "status": "active",
-                "password_hash": AuthService.hash_password("password123"),
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-            if settings.IS_LOCAL_OPERATOR:
+                return mock_user
+            elif search_term in ["operator@bloom.com", "9876543210"] and password in ["password123"]:
+                mock_user = {
+                    "_id": "mock_operator_id",
+                    "name": "Mock Operator",
+                    "email": "operator@bloom.com",
+                    "phone": "9876543210",
+                    "role": "bloom_operator",
+                    "school_id": None,
+                    "status": "active",
+                    "password_hash": AuthService.hash_password("password123"),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
                 from services.local_db import LocalDB
                 LocalDB.save_user(mock_user)
-            return mock_user
+                return mock_user
 
         return None
 

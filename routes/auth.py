@@ -2,7 +2,10 @@ from fastapi import APIRouter, Request, Response, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from services.auth_service import AuthService, NetworkError
+from config import settings
+from utils import get_templates
 import logging
+
 logger = logging.getLogger("app.auth_route")
 
 router = APIRouter()
@@ -41,6 +44,14 @@ async def login(
             request=request,
             name="auth/login.html",
             context={"error": "Unable to reach the online authentication server. Please check your connection or try again."}
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error during authentication: {e}", exc_info=True)
+        return templates.TemplateResponse(
+            request=request,
+            name="auth/login.html",
+            context={"error": "An internal error occurred. Please try again later."},
+            status_code=500
         )
     if not user:
         return templates.TemplateResponse(
