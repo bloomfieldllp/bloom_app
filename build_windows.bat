@@ -7,37 +7,37 @@ echo ===================================================
 
 set "PYTHON_EXE="
 
-:: 1. Try to find python 3.11 in common locations or PATH
-if exist "%USERPROFILE%\AppData\Local\Programs\Python\Python311\python.exe" (
-    set "PYTHON_EXE=%USERPROFILE%\AppData\Local\Programs\Python\Python311\python.exe"
-) else if exist "%ProgramFiles%\Python311\python.exe" (
-    set "PYTHON_EXE=%ProgramFiles%\Python311\python.exe"
+:: 1. Try to find python 3.12 in common locations or PATH
+if exist "%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe" (
+    set "PYTHON_EXE=%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe"
+) else if exist "%ProgramFiles%\Python312\python.exe" (
+    set "PYTHON_EXE=%ProgramFiles%\Python312\python.exe"
 ) else (
-    python -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)" >nul 2>&1
+    python -c "import sys; sys.exit(0 if sys.version_info >= (3,12) else 1)" >nul 2>&1
     if !errorlevel! equ 0 (
         set "PYTHON_EXE=python"
     )
 )
 
 if "!PYTHON_EXE!"=="" (
-    echo Python 3.11+ not found.
-    echo Downloading official Python 3.11.9 installer...
-    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile 'python-3.11.9-amd64.exe'"
-    if not exist "python-3.11.9-amd64.exe" (
+    echo Python 3.12+ not found.
+    echo Downloading official Python 3.12.5 installer...
+    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.12.5/python-3.12.5-amd64.exe' -OutFile 'python-3.12.5-amd64.exe'"
+    if not exist "python-3.12.5-amd64.exe" (
         echo [ERROR] Failed to download Python installer.
         pause
         exit /b 1
     )
-    echo Installing Python 3.11.9 silently... ^(User-level install, no admin required^)
-    start /wait python-3.11.9-amd64.exe /quiet InstallAllUsers=0 PrependPath=1 Include_test=0
+    echo Installing Python 3.12.5 silently... ^(User-level install, no admin required^)
+    start /wait python-3.12.5-amd64.exe /quiet InstallAllUsers=0 PrependPath=1 Include_test=0
     if !errorlevel! neq 0 (
         echo [ERROR] Python installation failed.
         pause
         exit /b 1
     )
     
-    if exist "%USERPROFILE%\AppData\Local\Programs\Python\Python311\python.exe" (
-        set "PYTHON_EXE=%USERPROFILE%\AppData\Local\Programs\Python\Python311\python.exe"
+    if exist "%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe" (
+        set "PYTHON_EXE=%USERPROFILE%\AppData\Local\Programs\Python\Python312\python.exe"
     ) else (
         set "PYTHON_EXE=python"
     )
@@ -91,8 +91,24 @@ if !errorlevel! neq 0 (
     exit /b 1
 )
 
+echo Running pip check to verify dependency resolution...
+"!VENV_PIP!" check
+if !errorlevel! neq 0 (
+    echo [ERROR] Dependency conflict detected by pip check.
+    pause
+    exit /b 1
+)
+
+echo Verifying core imports and Python architecture...
+"!VENV_PYTHON!" -c "import sys; assert sys.maxsize > 2**32, 'Not running on x64 Python'; import numpy; import pandas; import fastapi; import uvicorn; import bcrypt; import webview; import motor"
+if !errorlevel! neq 0 (
+    echo [ERROR] Dependency import validation failed or architecture is not 64-bit.
+    pause
+    exit /b 1
+)
+
 echo Installing PyInstaller...
-"!VENV_PIP!" install pyinstaller
+"!VENV_PIP!" install pyinstaller==6.22.2
 if !errorlevel! neq 0 (
     echo [ERROR] Failed to install PyInstaller.
     pause

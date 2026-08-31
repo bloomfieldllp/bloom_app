@@ -8,14 +8,26 @@ hidden_imports = (
     collect_submodules('uvicorn') +
     collect_submodules('fastapi') +
     collect_submodules('starlette') +
-    collect_submodules('jinja2')
+    collect_submodules('jinja2') +
+    collect_submodules('motor') +
+    collect_submodules('pymongo') +
+    collect_submodules('dns') +
+    collect_submodules('pandas') +
+    collect_submodules('numpy') +
+    collect_submodules('openpyxl')
 )
+
+datas = [('templates', 'templates'), ('static', 'static')]
+datas += collect_data_files('pandas')
+datas += collect_data_files('openpyxl')
+datas += collect_data_files('motor')
+datas += collect_data_files('pymongo')
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('templates', 'templates'), ('static', 'static')],
+    datas=datas,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
