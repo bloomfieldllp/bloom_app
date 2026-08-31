@@ -31,7 +31,9 @@ async def school_dashboard(request: Request, user = Depends(RoleChecker(["school
         "user": user,
         "school": school,
         "stats": stats,
-        "projects": projects
+        "projects": projects,
+        "error": request.query_params.get("error"),
+        "msg": request.query_params.get("msg")
     })
 
 @router.get("/projects/{project_id}/import", response_class=HTMLResponse)
@@ -224,7 +226,7 @@ async def import_redirect(request: Request, user = Depends(RoleChecker(["school_
     projects = ProjectService.list_projects(school_id)
     if projects:
         return RedirectResponse(url=f"/school/projects/{projects[0]['_id']}/import", status_code=303)
-    return RedirectResponse(url="/school", status_code=303)
+    return RedirectResponse(url="/school?error=No+photography+project+has+been+assigned+to+this+school.+Please+contact+the+administrator+before+importing+students.", status_code=303)
 
 @router.get("/projects/{project_id}/students", response_class=HTMLResponse)
 async def student_list(

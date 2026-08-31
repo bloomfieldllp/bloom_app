@@ -169,17 +169,7 @@ class ProjectService:
         except Exception:
             pass
             
-        # Return fallback mock project
-        return {
-            "_id": project_id,
-            "project_id": "PRJ_2026_00001",
-            "school_id": school_id or "60d5ec34b0d87a4190c7bfa1",
-            "name": "Springfield Academy - 2026-27 (Mock)",
-            "academic_year": "2026-27",
-            "photography_start_date": datetime(2026, 9, 1, tzinfo=timezone.utc),
-            "assigned_operator_id": "mock_operator_id",
-            "status": "scheduled"
-        }
+        return None
 
     @staticmethod
     def list_projects(school_id: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -192,18 +182,6 @@ class ProjectService:
             projects = list(db.projects.find(query))
         except Exception:
             projects = []
-            
-        if not projects:
-            projects = [{
-                "_id": "60d5ec34b0d87a4190c7bfa4",
-                "project_id": "PRJ_2026_00001",
-                "school_id": school_id or "60d5ec34b0d87a4190c7bfa1",
-                "name": "Springfield Academy - 2026-27 (Mock)",
-                "academic_year": "2026-27",
-                "photography_start_date": datetime(2026, 9, 1, tzinfo=timezone.utc),
-                "assigned_operator_id": "60d5ec34b0d87a4190c7bfa3",
-                "status": "scheduled"
-            }]
             
         for proj in projects:
             proj["_id"] = str(proj["_id"])
