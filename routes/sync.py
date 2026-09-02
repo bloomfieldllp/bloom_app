@@ -48,23 +48,56 @@ async def api_login(req: LoginRequest):
         
     return {"status": "success", "user": user_data}
 
+def resolve_operator_ids(db, operator_id: str) -> List[Any]:
+    match_ids = [operator_id]
+    if ObjectId.is_valid(operator_id):
+        match_ids.append(ObjectId(operator_id))
+        
+    if operator_id == "mock_operator_id":
+        return match_ids
+        
+    user_query = {"$or": [{"phone": operator_id}, {"email": operator_id}, {"_id": operator_id}]}
+    if ObjectId.is_valid(operator_id):
+        user_query["$or"].append({"_id": ObjectId(operator_id)})
+        
+    try:
+        u = db.users.find_one(user_query)
+        if u:
+            uid_str = str(u["_id"])
+            match_ids.append(uid_str)
+            if ObjectId.is_valid(uid_str):
+                match_ids.append(ObjectId(uid_str))
+            if u.get("phone"):
+                match_ids.append(str(u["phone"]))
+            if u.get("email"):
+                match_ids.append(str(u["email"]))
+    except Exception:
+        pass
+        
+    return list(set(match_ids))
+
 @router.post("/api/sync/snapshot")
 async def api_snapshot(req: SnapshotRequest):
     db = get_db()
     operator_id = req.operator_id
+    op_ids = resolve_operator_ids(db, operator_id)
     
     # Find assigned projects
     if operator_id == "mock_operator_id":
         projects = list(db.projects.find())
     else:
-        projects = list(db.projects.find({"assigned_operator_id": operator_id}))
+        projects = list(db.projects.find({"assigned_operator_id": {"$in": op_ids}}))
         
-    project_ids_str = [str(p["_id"]) for p in projects]
     project_ids_match = []
-    for pid in project_ids_str:
-        project_ids_match.append(pid)
-        if ObjectId.is_valid(pid):
-            project_ids_match.append(ObjectId(pid))
+    for p in projects:
+        pid_str = str(p["_id"])
+        project_ids_match.append(pid_str)
+        if ObjectId.is_valid(pid_str):
+            project_ids_match.append(ObjectId(pid_str))
+        if p.get("project_id"):
+            project_ids_match.append(str(p["project_id"]))
+
+    project_ids_match = list(set(project_ids_match))
 
     school_ids_str = list(set(str(p["school_id"]) for p in projects if p.get("school_id")))
     school_ids_match = []

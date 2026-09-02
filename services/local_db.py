@@ -365,11 +365,23 @@ class LocalDB:
     def get_assigned_projects(cls, operator_id: str) -> List[Dict[str, Any]]:
         conn = cls.get_connection()
         try:
-            # For testing and compatibility, match operator_id mock rule
             if operator_id == "mock_operator_id":
                 rows = conn.execute("SELECT * FROM projects").fetchall()
-            else:
-                rows = conn.execute("SELECT * FROM projects WHERE assigned_operator_id = ?", (operator_id,)).fetchall()
+                return [dict(r) for r in rows]
+                
+            op_ids = [operator_id]
+            user_row = conn.execute("SELECT id, phone, email FROM users WHERE id = ? OR phone = ? OR email = ?", (operator_id, operator_id, operator_id)).fetchone()
+            if user_row:
+                if user_row[0]: op_ids.append(user_row[0])
+                if user_row[1]: op_ids.append(user_row[1])
+                if user_row[2]: op_ids.append(user_row[2])
+            op_ids = list(set(op_ids))
+            
+            placeholders = ",".join(["?"] * len(op_ids))
+            rows = conn.execute(f"SELECT * FROM projects WHERE assigned_operator_id IN ({placeholders})", op_ids).fetchall()
+            if not rows:
+                # If no matching assigned_operator_id found locally, fallback to return all cached projects
+                rows = conn.execute("SELECT * FROM projects").fetchall()
             return [dict(r) for r in rows]
         finally:
             conn.close()
@@ -470,7 +482,21 @@ class LocalDB:
     def list_students(cls, project_id: str) -> List[Dict[str, Any]]:
         conn = cls.get_connection()
         try:
-            rows = conn.execute("SELECT * FROM students WHERE project_id = ?", (project_id,)).fetchall()
+            proj_ids = [project_id]
+            proj_row = conn.execute("SELECT id, project_id FROM projects WHERE id = ? OR project_id = ?", (project_id, project_id)).fetchone()
+            if proj_row:
+                if proj_row[0]: proj_ids.append(proj_row[0])
+                if proj_row[1]: proj_ids.append(proj_row[1])
+            proj_ids = list(set(proj_ids))
+            
+            placeholders = ",".join(["?"] * len(proj_ids))
+            rows = conn.execute(f"SELECT * FROM students WHERE project_id IN ({placeholders})", proj_ids).fetchall()
+            if not rows:
+                # Fallback: if single project in SQLite, return all students
+                count_p = conn.execute("SELECT COUNT(*) FROM projects").fetchone()[0]
+                if count_p <= 1:
+                    rows = conn.execute("SELECT * FROM students").fetchall()
+                    
             students = []
             for row in rows:
                 s = dict(row)

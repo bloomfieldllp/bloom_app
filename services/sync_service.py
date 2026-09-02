@@ -94,15 +94,19 @@ class SyncService:
             
         cls._state = "CONNECTING"
         
-        # Get operator_id from local projects table
+        # Get operator_id from local users table first, then fallback to projects table
         operator_id = None
         conn = LocalDB.get_connection()
         try:
-            row = conn.execute("SELECT assigned_operator_id FROM projects LIMIT 1").fetchone()
-            if row:
-                operator_id = row[0]
+            row_u = conn.execute("SELECT id, phone FROM users WHERE role IN ('bloom_operator', 'operator') LIMIT 1").fetchone()
+            if row_u:
+                operator_id = row_u[0] or row_u[1]
+            else:
+                row_p = conn.execute("SELECT assigned_operator_id FROM projects WHERE assigned_operator_id IS NOT NULL AND assigned_operator_id != '' LIMIT 1").fetchone()
+                if row_p:
+                    operator_id = row_p[0]
         except Exception as db_err:
-            logger.error(f"Failed to fetch operator_id from projects table: {db_err}")
+            logger.error(f"Failed to fetch operator_id: {db_err}")
         finally:
             conn.close()
             
