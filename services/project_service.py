@@ -156,6 +156,12 @@ class ProjectService:
     @staticmethod
     def get_project(project_id: str, school_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         db = get_db()
+        from bson.errors import InvalidId
+        from bson import ObjectId
+        
+        if not ObjectId.is_valid(project_id):
+            return None
+            
         query = {"_id": ObjectId(project_id)}
         if school_id:
             query["school_id"] = school_id
