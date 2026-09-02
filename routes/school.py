@@ -189,17 +189,27 @@ async def execute_import(
     mapping = json.loads(mapping_json)
     
     report = StudentImportService.validate_and_parse_records(
-        file_bytes, filename, mapping, project_id
+        file_bytes, filename, mapping, project_id, school_id
     )
     
     valid_records = report["valid_records"]
     
-    result = StudentImportService.execute_import(
-        school_id=school_id,
-        project_id=project_id,
-        valid_records=valid_records,
-        action=import_action
-    )
+    try:
+        result = StudentImportService.execute_import(
+            school_id=school_id,
+            project_id=project_id,
+            valid_records=valid_records,
+            action=import_action
+        )
+    except Exception as e:
+        import traceback
+        import logging
+        logging.error(f"Import execution failed: {e}")
+        logging.error(traceback.format_exc())
+        return RedirectResponse(
+            url=f"/school/projects/{project_id}/import?error=An+unexpected+error+occurred+during+import.+Please+contact+support.",
+            status_code=303
+        )
     
     # Clean up temporary database record
     try:

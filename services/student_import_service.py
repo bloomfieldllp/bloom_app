@@ -224,19 +224,37 @@ class StudentImportService:
         deleted_count = 0
         
         if action == "replace":
-            # Delete existing
+            # Delete existing students ONLY in this project
             del_result = db.students.delete_many({"project_id": project_id})
             deleted_count = del_result.deleted_count
             
-            # Bulk insert
-            if valid_records:
-                for r in valid_records:
+            for r in valid_records:
+                gr_val = r["gr"]
+                existing = db.students.find_one({"school_id": school_id, "gr": gr_val})
+                if existing:
+                    # Update fields and move to this project
+                    db.students.update_one(
+                        {"_id": existing["_id"]},
+                        {
+                            "$set": {
+                                "name": r["name"],
+                                "standard": r["standard"],
+                                "roll_number": r["roll_number"],
+                                "division": r["division"],
+                                "raw_data": r["raw_data"],
+                                "project_id": project_id,
+                                "updated_at": now
+                            }
+                        }
+                    )
+                    inserted_count += 1
+                else:
                     r["school_id"] = school_id
                     r["project_id"] = project_id
                     r["created_at"] = now
                     r["updated_at"] = now
-                db.students.insert_many(valid_records)
-                inserted_count = len(valid_records)
+                    db.students.insert_one(r)
+                    inserted_count += 1
                 
         elif action == "update":
             # For each record, if exists in school+gr, update fields, else insert
