@@ -274,11 +274,13 @@ async def api_pull(req: PullRequest):
         except Exception:
             pass
             
+    op_ids = resolve_operator_ids(db, operator_id)
+    
     # Find operator projects
     if operator_id == "mock_operator_id":
         projects = list(db.projects.find())
     else:
-        projects = list(db.projects.find({"assigned_operator_id": operator_id}))
+        projects = list(db.projects.find({"assigned_operator_id": {"$in": op_ids}}))
         
     project_ids_str = [str(p["_id"]) for p in projects]
     project_ids_match = []
@@ -293,9 +295,9 @@ async def api_pull(req: PullRequest):
         if ObjectId.is_valid(sid):
             school_ids_match.append(ObjectId(sid))
 
-    # Query updates since last sync
+    # Query authorized objects for this operator
     school_query = {"_id": {"$in": school_ids_match}} if school_ids_match else {"_id": {"$in": []}}
-    project_query = {"assigned_operator_id": operator_id} if operator_id != "mock_operator_id" else {}
+    project_query = {"assigned_operator_id": {"$in": op_ids}} if operator_id != "mock_operator_id" else {}
     student_query = {"project_id": {"$in": project_ids_match}} if project_ids_match else {"project_id": {"$in": []}}
     
     if since_dt:

@@ -247,7 +247,13 @@ class LocalDB:
             if "field_definitions" in school:
                 field_defs_str = json.dumps(school["field_definitions"])
                 
+            s_id = str(school.get("_id") or school.get("id"))
+            code = school.get("school_code", "")
+            
             with conn:
+                if code:
+                    conn.execute("DELETE FROM schools WHERE school_code = ? AND id != ?", (code, s_id))
+                    
                 conn.execute("""
                     INSERT INTO schools (id, name, school_code, location_link, status, updated_at, field_definitions)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -259,9 +265,9 @@ class LocalDB:
                         updated_at=excluded.updated_at,
                         field_definitions=excluded.field_definitions
                 """, (
-                    str(school.get("_id") or school.get("id")),
+                    s_id,
                     school.get("name", ""),
-                    school.get("school_code", ""),
+                    code,
                     school.get("location_link"),
                     school.get("status", "active"),
                     school.get("updated_at", datetime.now(timezone.utc).isoformat()),

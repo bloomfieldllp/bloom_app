@@ -252,5 +252,17 @@ class SyncService:
                             ph["version"], ph["status"], ph["captured_at"]
                         ))
                     cls._completed_downloads += 1
+
+            # Reconcile server deletions for authorized projects
+            valid_student_ids = set(st["id"] for st in students)
+            for p in projects:
+                pid = p["id"]
+                local_stus = conn.execute("SELECT id FROM students WHERE project_id = ?", (pid,)).fetchall()
+                for r in local_stus:
+                    sid = r[0]
+                    if sid not in valid_student_ids:
+                        row = conn.execute("SELECT COUNT(*) FROM pending_operations WHERE entity_id = ? AND sync_status = 'PENDING'", (sid,)).fetchone()
+                        if not row or row[0] == 0:
+                            conn.execute("DELETE FROM students WHERE id = ?", (sid,))
         finally:
             conn.close()
