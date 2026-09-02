@@ -1,9 +1,10 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-echo ===================================================
-echo Building Bloom Operator Standalone App for Windows
-echo ===================================================
+echo ========================================
+echo  Bloom Operator Windows Build
+echo  Source Version: 2026-09-02 CurrentSource v01
+echo ========================================
 
 set "PYTHON_EXE="
 
@@ -151,6 +152,9 @@ if "!PYINST_VER!"=="6.22.2" (
 )
 
 :: 5. Build the application
+echo Cleaning previous build artifacts...
+if exist "build" rmdir /s /q "build"
+if exist "dist\BloomOperator" rmdir /s /q "dist\BloomOperator"
 echo Building application with PyInstaller...
 "!VENV_PYTHON!" -m PyInstaller BloomOperator.spec --noconfirm
 if !errorlevel! neq 0 (
