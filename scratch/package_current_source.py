@@ -4,7 +4,7 @@ import zipfile
 
 def create_windows_build_zip():
     staging_dir = "staging_build"
-    zip_filename = "BloomOperator_WindowsBuild_2026-09-02_CurrentSource_v01.zip"
+    zip_filename = "BloomOperator_WindowsBuild_2026-09-02_ProjectSyncFix_v01.zip"
     
     if os.path.exists(staging_dir):
         shutil.rmtree(staging_dir)

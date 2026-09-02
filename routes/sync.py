@@ -59,23 +59,37 @@ async def api_snapshot(req: SnapshotRequest):
     else:
         projects = list(db.projects.find({"assigned_operator_id": operator_id}))
         
-    project_ids = [str(p["_id"]) for p in projects]
-    school_ids = list(set(str(p["school_id"]) for p in projects if p.get("school_id")))
-    
+    project_ids_str = [str(p["_id"]) for p in projects]
+    project_ids_match = []
+    for pid in project_ids_str:
+        project_ids_match.append(pid)
+        if ObjectId.is_valid(pid):
+            project_ids_match.append(ObjectId(pid))
+
+    school_ids_str = list(set(str(p["school_id"]) for p in projects if p.get("school_id")))
+    school_ids_match = []
+    for sid in school_ids_str:
+        if ObjectId.is_valid(sid):
+            school_ids_match.append(ObjectId(sid))
+
     # Fetch schools
-    schools = list(db.schools.find({"_id": {"$in": [ObjectId(sid) for sid in school_ids]}}))
+    schools = list(db.schools.find({"_id": {"$in": school_ids_match}})) if school_ids_match else []
     
     # Fetch students
-    students = list(db.students.find({"project_id": {"$in": project_ids}}))
+    students = list(db.students.find({"project_id": {"$in": project_ids_match}})) if project_ids_match else []
     student_ids = [str(s["_id"]) for s in students]
     
     # Fetch student photos
     photos = list(db.student_photos.find({"student_id": {"$in": student_ids}, "is_current": True}))
     
+    logger.info(f"SYNC SNAPSHOT operator={operator_id} projects={len(projects)} students={len(students)}")
+
     # Serialize ObjectId to string for JSON compatibility
     for p in projects:
         p["id"] = str(p["_id"])
         p.pop("_id", None)
+        if "school_id" in p:
+            p["school_id"] = str(p["school_id"])
         if "photography_start_date" in p and isinstance(p["photography_start_date"], datetime):
             p["photography_start_date"] = p["photography_start_date"].isoformat()
         if "created_at" in p and isinstance(p["created_at"], datetime):
@@ -94,6 +108,10 @@ async def api_snapshot(req: SnapshotRequest):
     for st in students:
         st["id"] = str(st["_id"])
         st.pop("_id", None)
+        if "project_id" in st:
+            st["project_id"] = str(st["project_id"])
+        if "school_id" in st:
+            st["school_id"] = str(st["school_id"])
         if "created_at" in st and isinstance(st["created_at"], datetime):
             st["created_at"] = st["created_at"].isoformat()
         if "updated_at" in st and isinstance(st["updated_at"], datetime):
@@ -229,13 +247,23 @@ async def api_pull(req: PullRequest):
     else:
         projects = list(db.projects.find({"assigned_operator_id": operator_id}))
         
-    project_ids = [str(p["_id"]) for p in projects]
-    school_ids = list(set(str(p["school_id"]) for p in projects if p.get("school_id")))
-    
+    project_ids_str = [str(p["_id"]) for p in projects]
+    project_ids_match = []
+    for pid in project_ids_str:
+        project_ids_match.append(pid)
+        if ObjectId.is_valid(pid):
+            project_ids_match.append(ObjectId(pid))
+
+    school_ids_str = list(set(str(p["school_id"]) for p in projects if p.get("school_id")))
+    school_ids_match = []
+    for sid in school_ids_str:
+        if ObjectId.is_valid(sid):
+            school_ids_match.append(ObjectId(sid))
+
     # Query updates since last sync
-    school_query = {"_id": {"$in": [ObjectId(sid) for sid in school_ids]}}
+    school_query = {"_id": {"$in": school_ids_match}} if school_ids_match else {"_id": {"$in": []}}
     project_query = {"assigned_operator_id": operator_id} if operator_id != "mock_operator_id" else {}
-    student_query = {"project_id": {"$in": project_ids}}
+    student_query = {"project_id": {"$in": project_ids_match}} if project_ids_match else {"project_id": {"$in": []}}
     
     if since_dt:
         school_query["updated_at"] = {"$gt": since_dt}
@@ -244,17 +272,22 @@ async def api_pull(req: PullRequest):
         # If a project was updated recently (e.g. operator assignment changed),
         # we MUST pull all its students regardless of when the student was updated.
         recently_updated_projects = list(db.projects.find({
-            "_id": {"$in": [ObjectId(pid) for pid in project_ids]},
+            "_id": {"$in": [ObjectId(pid) for pid in project_ids_str if ObjectId.is_valid(pid)]},
             "updated_at": {"$gt": since_dt}
         }))
-        recently_updated_project_ids = [str(p["_id"]) for p in recently_updated_projects]
+        recently_updated_project_ids_match = []
+        for p in recently_updated_projects:
+            pid = str(p["_id"])
+            recently_updated_project_ids_match.append(pid)
+            if ObjectId.is_valid(pid):
+                recently_updated_project_ids_match.append(ObjectId(pid))
         
-        if recently_updated_project_ids:
+        if recently_updated_project_ids_match:
             student_query = {
-                "project_id": {"$in": project_ids},
+                "project_id": {"$in": project_ids_match},
                 "$or": [
                     {"updated_at": {"$gt": since_dt}},
-                    {"project_id": {"$in": recently_updated_project_ids}}
+                    {"project_id": {"$in": recently_updated_project_ids_match}}
                 ]
             }
         else:
@@ -263,6 +296,8 @@ async def api_pull(req: PullRequest):
     schools_up = list(db.schools.find(school_query))
     projects_up = list(db.projects.find(project_query))
     students_up = list(db.students.find(student_query))
+    
+    logger.info(f"SYNC PULL operator={operator_id} projects={len(projects_up)} students={len(students_up)}")
     
     # Fetch current student photos of updated/any students
     updated_student_ids = [str(s["_id"]) for s in students_up]
