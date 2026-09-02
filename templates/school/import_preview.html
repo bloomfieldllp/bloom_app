@@ -1,77 +1,305 @@
 {% extends "base.html" %}
-{% block title %}Preview Import - {{ project.name }}{% endblock %}
+
+{% block title %}Import Preview - Bloom{% endblock %}
 
 {% block content %}
-<div class="content-header">
-    <div>
-        <h1 class="page-title">Import Preview</h1>
-        <p class="page-subtitle">Review the mapped records before importing.</p>
-    </div>
-</div>
-
-<div class="card" style="max-width: 1000px; margin: 0 auto; padding: 2rem;">
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
-        <div style="padding: 1rem; background-color: #f9f9f9; border-radius: 8px;">
-            <h3 style="margin-top: 0; color: var(--success);">Valid Records</h3>
-            <p style="font-size: 2rem; font-weight: 700; margin: 0;">{{ report.valid_records|length }}</p>
+<div class="school-admin-portal" style="max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; min-height: calc(100vh - 120px); justify-content: space-between;">
+    <!-- Step Indicator at the top -->
+    <div class="step-container" style="margin-bottom: 1rem;">
+        <div class="step-item completed">
+            <div class="step-dot">✓</div>
+            <div class="step-label" id="lbl-step1">1. Browse File</div>
         </div>
-        <div style="padding: 1rem; background-color: #f9f9f9; border-radius: 8px;">
-            <h3 style="margin-top: 0; color: {% if report.missing_gr_count > 0 %}var(--danger){% else %}var(--text-primary){% endif %};">Missing GR/Name</h3>
-            <p style="font-size: 2rem; font-weight: 700; margin: 0;">{{ report.missing_gr_count + report.missing_name_count }}</p>
+        <div class="step-item completed">
+            <div class="step-dot">✓</div>
+            <div class="step-label" id="lbl-step2">2. Map Columns</div>
+        </div>
+        <div class="step-item active">
+            <div class="step-dot">3</div>
+            <div class="step-label" id="lbl-step3">3. Validate & Upload</div>
         </div>
     </div>
-    
-    <div style="margin-bottom: 2rem; overflow-x: auto;">
-        <h3>Sample Valid Records</h3>
-        <table class="data-table" style="width: 100%; white-space: nowrap;">
-            <thead>
-                <tr>
-                    <th>GR</th>
-                    <th>Name</th>
-                    <th>Standard</th>
-                    <th>Section</th>
-                    {% for k, v in mapping.items() %}
-                        {% if k.startswith('custom_') %}
-                            <th>{{ k | replace('custom_', '') | title }}</th>
-                        {% endif %}
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in report.valid_records[:5] %}
-                <tr>
-                    <td>{{ row.gr }}</td>
-                    <td>{{ row.name }}</td>
-                    <td>{{ row.standard }}</td>
-                    <td>{{ row.section }}</td>
-                    {% for k, v in mapping.items() %}
-                        {% if k.startswith('custom_') %}
-                            {% set fk = k | replace('custom_', '') %}
-                            <td>{{ row.custom_fields.get(fk, '') if row.custom_fields else '' }}</td>
-                        {% endif %}
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
 
-    <form action="/school/projects/{{ project._id }}/execute-import" method="POST">
-        <input type="hidden" name="temp_file_path" value="{{ temp_file_path }}">
-        <input type="hidden" name="filename" value="{{ filename }}">
-        
+    <!-- Main Centered Content Card -->
+    <div class="upload-centered-card" style="max-width: 600px;">
+        <!-- Center illustration with overlapping background blobs -->
+        <div class="upload-illustration-container">
+            <div class="upload-ill-bg teal" style="width: 140px; height: 140px; top: 20px; left: 60px; opacity: 0.9;"></div>
+            <img src="/static/images/SVG_files/Asset 4.svg" alt="Validate & Upload" class="upload-ill-fg" style="max-height: 140px;">
+        </div>
+
+        <h2 style="font-weight: 800; font-size: 1.8rem; margin: 0 0 0.5rem 0; letter-spacing: -0.02em;" id="lbl-heading">Validate & Upload</h2>
+        <p style="color: var(--text-secondary); margin: 0 0 1.5rem 0; font-size: 0.95rem; line-height: 1.4;" id="lbl-subheading">Review the validation summary below before writing student records to the database.</p>
+
+        <!-- Compact Stat Boxes -->
+        <div class="stat-card-row preview-stats-grid" style="margin-top: 0; gap: 0.5rem; display: grid; margin-bottom: 1.5rem;">
+            <div class="stat-box" style="padding: 0.5rem; border-radius: 12px; text-align: center; border: 1px solid #EBEAE4;">
+                <span class="stat-box-label" style="font-size: 0.65rem; color: var(--text-secondary); display: block;" id="lbl-total-rows">Total Rows</span>
+                <span class="stat-box-value" style="font-size: 1.25rem; font-weight: 800; color: #111; display: block; margin-top: 2px;">{{ report.total_rows }}</span>
+            </div>
+            <div class="stat-box" style="padding: 0.5rem; border-radius: 12px; text-align: center; border: 1px solid #EBEAE4;">
+                <span class="stat-box-label" style="font-size: 0.65rem; color: var(--text-secondary); display: block;" id="lbl-valid-rows">Valid Rows</span>
+                <span class="stat-box-value" style="font-size: 1.25rem; font-weight: 800; color: var(--success); display: block; margin-top: 2px;">{{ report.valid_records|length }}</span>
+            </div>
+            <div class="stat-box" style="padding: 0.5rem; border-radius: 12px; text-align: center; border: 1px solid #EBEAE4;">
+                <span class="stat-box-label" style="font-size: 0.65rem; color: var(--text-secondary); display: block;" id="lbl-duplicate-gr">Duplicate GR</span>
+                <span class="stat-box-value" style="font-size: 1.25rem; font-weight: 800; color: {% if report.duplicate_gr_in_file_count > 0 %}var(--danger){% else %}var(--text-secondary){% endif %}; display: block; margin-top: 2px;">{{ report.duplicate_gr_in_file_count }}</span>
+            </div>
+            <div class="stat-box" style="padding: 0.5rem; border-radius: 12px; text-align: center; border: 1px solid #EBEAE4;">
+                <span class="stat-box-label" style="font-size: 0.65rem; color: var(--text-secondary); display: block;" id="lbl-missing-fields">Missing Fields</span>
+                <span class="stat-box-value" style="font-size: 1.25rem; font-weight: 800; color: {% if (report.missing_name_count + report.missing_gr_count + report.missing_std_count) > 0 %}var(--danger){% else %}var(--text-secondary){% endif %}; display: block; margin-top: 2px;">{{ report.missing_name_count + report.missing_gr_count + report.missing_std_count }}</span>
+            </div>
+        </div>
+
+        <!-- Issues details box -->
+        {% if report.duplicate_gr_in_file_count > 0 or report.duplicate_gr_in_db_count > 0 or (report.missing_name_count + report.missing_gr_count + report.missing_std_count) > 0 %}
+            <div style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; padding-right: 5px; margin-bottom: 1.5rem; text-align: left;">
+                {% if report.duplicate_gr_in_file_count > 0 %}
+                    <div class="alert alert-danger" style="margin: 0; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 8px;">
+                        <strong id="lbl-err-dup-file">Duplicates detected in the uploaded file:</strong>
+                        <ul style="margin: 0.25rem 0 0 1rem; padding: 0;">
+                            {% for gr, lines in report.duplicate_gr_in_file.items() %}
+                                <li>GR <code>{{ gr }}</code> <span class="lbl-line-text">is duplicated on lines:</span> {{ lines|join(', ') }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+                
+                {% if report.duplicate_gr_in_db_count > 0 %}
+                    <div class="alert alert-warning" style="margin: 0; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 8px; background-color: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.15); color: var(--warning);">
+                        <strong id="lbl-err-dup-db">GR numbers match existing records in this project:</strong>
+                        <div style="margin-top: 0.25rem; font-size: 0.75rem; max-height: 80px; overflow-y: auto; color: #1a1a19;">
+                            {{ report.duplicate_gr_in_db|join(', ') }}
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if report.missing_name_count > 0 or report.missing_gr_count > 0 or report.missing_std_count > 0 %}
+                    <div class="alert alert-danger" style="margin: 0; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 8px;">
+                        <strong id="lbl-err-missing">Records with missing required fields:</strong>
+                        <ul style="margin: 0.25rem 0 0 1rem; padding: 0;">
+                            {% if report.missing_gr_count > 0 %}<li id="lbl-miss-gr">{{ report.missing_gr_count }} records are missing GR values.</li>{% endif %}
+                            {% if report.missing_name_count > 0 %}<li id="lbl-miss-name">{{ report.missing_name_count }} records are missing Student Name.</li>{% endif %}
+                            {% if report.missing_std_count > 0 %}<li id="lbl-miss-std">{{ report.missing_std_count }} records are missing Standard.</li>{% endif %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <!-- Ready status banner -->
         <div style="margin-bottom: 1.5rem;">
-            <label style="font-weight: 600; display: block; margin-bottom: 0.5rem;">Import Mode</label>
-            <select name="import_action" required class="form-control" style="width: 100%; padding: 12px; border-radius: 8px;">
-                <option value="append">Append (Insert all valid records)</option>
-                <option value="update">Update (Update existing GRs, insert new)</option>
-                <option value="replace">Replace (Delete all existing records for project, then insert)</option>
-            </select>
+            {% if report.valid_records|length == 0 %}
+                <div class="alert alert-danger" style="margin: 0; padding: 0.75rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600;" id="lbl-no-valid">
+                    No valid records found to import. Please check your columns mapping or update the file and upload again.
+                </div>
+            {% else %}
+                <div class="alert alert-success" style="margin: 0; padding: 0.75rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600;" id="lbl-ready-import">
+                    Ready to import {{ report.valid_records|length }} valid records.
+                </div>
+            {% endif %}
         </div>
-        
-        <div style="text-align: right;">
-            <button type="submit" class="btn btn-primary" style="padding: 12px 24px; font-weight: 600;">Execute Import</button>
-        </div>
-    </form>
+
+        <!-- Import Execution Options form -->
+        {% if report.valid_records|length > 0 %}
+            <form action="/school/projects/{{ project._id }}/execute-import" method="POST" style="text-align: left; display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Hidden inputs -->
+                <input type="hidden" name="temp_file_path" value="{{ temp_file_path }}">
+                <input type="hidden" name="filename" value="{{ filename }}">
+                
+                
+                <div>
+                    <h3 style="font-weight: 700; font-size: 1.05rem; margin: 0 0 0.5rem 0;" id="lbl-actions-title">Import Actions</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 1rem 0; line-height: 1.4;" id="lbl-actions-subtitle">
+                        Choose how to handle the import against existing project records (currently containing {{ existing_count }} students).
+                    </p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+                        <!-- Option 1 -->
+                        <label style="display: flex; gap: 0.5rem; align-items: flex-start; cursor: pointer; margin: 0;">
+                            <input type="radio" name="import_action" value="update" checked style="margin-top: 0.2rem; accent-color: #f78c22;">
+                            <div style="font-size: 0.85rem; font-weight: 700; color: #111;">
+                                <span id="lbl-opt-update-title">Update existing & Add new</span>
+                                <span id="lbl-opt-update-desc" style="display: block; font-weight: 400; font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.1rem; line-height: 1.3;">
+                                    Updates student fields (e.g. name, standard) matching on GR, while preserving existing photo statuses, and appends new GRs. (Recommended)
+                                </span>
+                            </div>
+                        </label>
+                        
+                        <!-- Option 2 -->
+                        <label style="display: flex; gap: 0.5rem; align-items: flex-start; cursor: pointer; margin: 0;">
+                            <input type="radio" name="import_action" value="add_only" style="margin-top: 0.2rem; accent-color: #f78c22;">
+                            <div style="font-size: 0.85rem; font-weight: 700; color: #111;">
+                                <span id="lbl-opt-add-title">Add new records only</span>
+                                <span id="lbl-opt-add-desc" style="display: block; font-weight: 400; font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.1rem; line-height: 1.3;">
+                                    Only imports students whose GR does not exist in the database. Skips duplicates completely.
+                                </span>
+                            </div>
+                        </label>
+                        
+                        <!-- Option 3 -->
+                        <label style="display: flex; gap: 0.5rem; align-items: flex-start; cursor: pointer; margin: 0;">
+                            <input type="radio" name="import_action" value="replace" style="margin-top: 0.2rem; accent-color: #f78c22;">
+                            <div style="font-size: 0.85rem; font-weight: 700; color: #111;">
+                                <span id="lbl-opt-replace-title" style="color: var(--danger);">Replace project data</span>
+                                <span id="lbl-opt-replace-desc" style="display: block; font-weight: 400; font-size: 0.75rem; color: var(--danger); margin-top: 0.1rem; line-height: 1.3;">
+                                    ⚠️ WARNING: Deletes all existing student records and photo metadata in this project, and performs a fresh import.
+                                </span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <button type="submit" class="btn-primary-orange" id="lbl-btn-submit" style="width: 100%;">Import Valid Records</button>
+                    <a href="/school" class="btn-secondary-light" id="lbl-btn-cancel" style="width: 100%;">Cancel Import</a>
+                </div>
+            </form>
+        {% else %}
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1rem; padding: 1rem 0;">
+                <p style="color: var(--text-secondary); margin: 0; font-size: 0.85rem;" id="lbl-no-valid-msg">No valid records were resolved from the columns mapping configuration.</p>
+                <a href="/school/projects/{{ project._id }}/import" class="btn-primary-orange" id="lbl-btn-back" style="width: 100%;">Back to Upload</a>
+            </div>
+        {% endif %}
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const translations = {
+        ENG: {
+            step1: "1. Browse File",
+            step2: "2. Map Columns",
+            step3: "3. Validate & Upload",
+            heading: "Validate & Upload",
+            subheading: "Review the validation summary below before writing student records to the database.",
+            reportTitle: "Validation Report",
+            totalRows: "Total Rows",
+            validRows: "Valid Rows",
+            duplicateGr: "Duplicate GR",
+            missingFields: "Missing Fields",
+            duplicatesDetected: "Duplicates detected in the uploaded file:",
+            dbDuplicates: "GR numbers match existing records in this project:",
+            missingDetected: "Records with missing required fields:",
+            lineText: "is duplicated on lines:",
+            missingGrText: "records are missing GR values.",
+            missingNameText: "records are missing Student Name.",
+            missingStdText: "records are missing Standard.",
+            readyImport: "Ready to import valid records.",
+            noValid: "No valid records found to import. Please check your columns mapping or update the file and upload again.",
+            importActions: "Import Actions",
+            importActionsSub: "Choose how to handle the import against existing project records (currently containing {{ existing_count }} students).",
+            optUpdateTitle: "Update existing & Add new",
+            optUpdateDesc: "Updates student fields (e.g. name, standard) matching on GR, while preserving existing photo statuses, and appends new GRs. (Recommended)",
+            optAddOnlyTitle: "Add new records only",
+            optAddOnlyDesc: "Only imports students whose GR does not exist in the database. Skips duplicates completely.",
+            optReplaceTitle: "Replace project data",
+            optReplaceDesc: "⚠️ WARNING: Deletes all existing student records and photo metadata in this project, and performs a fresh import.",
+            btnCancel: "Cancel Import",
+            btnSubmit: "Import Valid Records",
+            btnBack: "Back to Upload"
+        },
+        GUJ: {
+            step1: "૧. ફાઇલ પસંદ કરો",
+            step2: "૨. કોલમ મેપ કરો",
+            step3: "૩. ચકાસો અને અપલોડ કરો",
+            heading: "ચકાસો અને અપલોડ કરો",
+            subheading: "ડેટાબેઝમાં વિદ્યાર્થીઓના રેકોર્ડ લખતા પહેલા નીચેની ચકાસણી સારાંશની સમીક્ષા કરો.",
+            reportTitle: "ચકાસણી અહેવાલ",
+            totalRows: "કુલ પંક્તિઓ",
+            validRows: "માન્ય પંક્તિઓ",
+            duplicateGr: "ડુપ્લિકેટ GR",
+            missingFields: "ખૂટતા ફીલ્ડ્સ",
+            duplicatesDetected: "અપલોડ કરેલી ફાઇલમાં ડુપ્લિકેટ્સ જોવા મળ્યા:",
+            dbDuplicates: "GR નંબરો આ પ્રોજેક્ટમાં હયાત રેકોર્ડ્સ સાથે મેળ ખાય છે:",
+            missingDetected: "ખૂટતા જરૂરી ફીલ્ડ્સ વાળા રેકોર્ડ્સ:",
+            lineText: "પંક્તિઓ પર ડુપ્લિકેટ છે:",
+            missingGrText: "રેકોર્ડ્સમાં GR મૂલ્ય ખૂટે છે.",
+            missingNameText: "રેકોર્ડ્સમાં વિદ્યાર્થીનું નામ ખૂટે છે.",
+            missingStdText: "રેકોર્ડ્સમાં ધોરણ ખૂટે છે.",
+            readyImport: "માન્ય રેકોર્ડ્સ આયાત કરવા માટે તૈયાર છે.",
+            noValid: "આયાત કરવા માટે કોઈ માન્ય રેકોર્ડ મળ્યા નથી. કૃપા કરીને કોલમ મેપિંગ તપાસો અથવા ફાઇલ અપડેટ કરો.",
+            importActions: "આયાત ક્રિયાઓ",
+            importActionsSub: "હાલના પ્રોજેક્ટ રેકોર્ડ્સ સામે આયાત કેવી રીતે હેન્ડલ કરવી તે પસંદ કરો (હાલમાં {{ existing_count }} વિદ્યાર્થીઓ છે).",
+            optUpdateTitle: "હાલના અપડેટ કરો અને નવા ઉમેરો",
+            optUpdateDesc: "હાલની ફોટો સ્ટેટસ જાળવી રાખીને GR મેચિંગ પર વિદ્યાર્થી ફીલ્ડ્સ અપડેટ કરે છે અને નવા GR ઉમેરે છે. (ભલામણ કરેલ)",
+            optAddOnlyTitle: "ફક્ત નવા રેકોર્ડ્સ ઉમેરો",
+            optAddOnlyDesc: "ફક્ત એવા વિદ્યાર્થીઓને આયાત કરે છે જેમના GR ડેટાબેઝમાં નથી. ડુપ્લિકેટ્સ છોડી દે છે.",
+            optReplaceTitle: "પ્રોજેક્ટ ડેટા બદલો",
+            optReplaceDesc: "⚠️ ચેતવણી: આ પ્રોજેક્ટમાં હાલના તમામ વિદ્યાર્થી રેકોર્ડ્સ અને ફોટો મેટાડેટાને કાઢી નાખે છે અને નવી આયાત કરે છે.",
+            btnCancel: "આયાત રદ કરો",
+            btnSubmit: "માન્ય રેકોર્ડ આયાત કરો",
+            btnBack: "અપલોડ પર પાછા જાઓ"
+        }
+    };
+
+    const currentLang = localStorage.getItem('bloom_upload_lang') || 'ENG';
+
+    function setLanguage(lang) {
+        const t = translations[lang];
+        document.getElementById('lbl-step1').textContent = t.step1;
+        document.getElementById('lbl-step2').textContent = t.step2;
+        document.getElementById('lbl-step3').textContent = t.step3;
+        document.getElementById('lbl-heading').textContent = t.heading;
+        document.getElementById('lbl-subheading').textContent = t.subheading;
+        
+        document.getElementById('lbl-report-title').textContent = t.reportTitle;
+        document.getElementById('lbl-total-rows').textContent = t.totalRows;
+        document.getElementById('lbl-valid-rows').textContent = t.validRows;
+        document.getElementById('lbl-duplicate-gr').textContent = t.duplicateGr;
+        document.getElementById('lbl-missing-fields').textContent = t.missingFields;
+        
+        const dupFile = document.getElementById('lbl-err-dup-file');
+        if (dupFile) dupFile.textContent = t.duplicatesDetected;
+        
+        const dupDb = document.getElementById('lbl-err-dup-db');
+        if (dupDb) dupDb.textContent = t.dbDuplicates;
+        
+        const missing = document.getElementById('lbl-err-missing');
+        if (missing) missing.textContent = t.missingDetected;
+        
+        // Update list inline texts
+        document.querySelectorAll('.lbl-line-text').forEach(el => el.textContent = t.lineText);
+        
+        const missGr = document.getElementById('lbl-miss-gr');
+        if (missGr) missGr.textContent = `{{ report.missing_gr_count }} ` + t.missingGrText;
+        const missName = document.getElementById('lbl-miss-name');
+        if (missName) missName.textContent = `{{ report.missing_name_count }} ` + t.missingNameText;
+        const missStd = document.getElementById('lbl-miss-std');
+        if (missStd) missStd.textContent = `{{ report.missing_std_count }} ` + t.missingStdText;
+        
+        const readyImport = document.getElementById('lbl-ready-import');
+        if (readyImport) readyImport.textContent = lang === 'ENG' ? `Ready to import {{ report.valid_records|length }} valid records.` : `{{ report.valid_records|length }} માન્ય રેકોર્ડ્સ આયાત કરવા માટે તૈયાર છે.`;
+        const noValid = document.getElementById('lbl-no-valid');
+        if (noValid) noValid.textContent = t.noValid;
+        
+        document.getElementById('lbl-actions-title').textContent = t.importActions;
+        document.getElementById('lbl-actions-subtitle').textContent = t.importActionsSub;
+        
+        const submitBtn = document.getElementById('lbl-btn-submit');
+        if (submitBtn) submitBtn.textContent = t.btnSubmit;
+        document.getElementById('lbl-btn-cancel').textContent = t.btnCancel;
+        
+        const backBtn = document.getElementById('lbl-btn-back');
+        if (backBtn) backBtn.textContent = t.btnBack;
+        
+        const optUpdateTitle = document.getElementById('lbl-opt-update-title');
+        if (optUpdateTitle) optUpdateTitle.textContent = t.optUpdateTitle;
+        const optUpdateDesc = document.getElementById('lbl-opt-update-desc');
+        if (optUpdateDesc) optUpdateDesc.textContent = t.optUpdateDesc;
+        
+        const optAddTitle = document.getElementById('lbl-opt-add-title');
+        if (optAddTitle) optAddTitle.textContent = t.optAddOnlyTitle;
+        const optAddDesc = document.getElementById('lbl-opt-add-desc');
+        if (optAddDesc) optAddDesc.textContent = t.optAddOnlyDesc;
+        
+        const optReplaceTitle = document.getElementById('lbl-opt-replace-title');
+        if (optReplaceTitle) optReplaceTitle.textContent = t.optReplaceTitle;
+        const optReplaceDesc = document.getElementById('lbl-opt-replace-desc');
+        if (optReplaceDesc) optReplaceDesc.textContent = t.optReplaceDesc;
+    }
+
+    setLanguage(currentLang);
+</script>
 {% endblock %}
