@@ -10,24 +10,48 @@ class StudentImportService:
             raise ValueError("No file provided.")
         content, filename = files_data[0]
         try:
-            df = pd.read_excel(io.BytesIO(content), nrows=10)
+            df = pd.read_excel(io.BytesIO(content), header=None, nrows=30, dtype=str)
         except Exception:
             raise ValueError("Failed to read Excel file. Please ensure it is a valid .xlsx or .xls file.")
             
-        # Clean headers
+        max_non_null = 0
+        header_row_idx = 0
+        
+        for idx, row in df.iterrows():
+            count = sum(1 for val in row if pd.notna(val) and str(val).strip())
+            if count > max_non_null:
+                max_non_null = count
+                header_row_idx = idx
+                
         headers = []
-        for col in df.columns:
-            if not str(col).startswith("Unnamed"):
-                headers.append(str(col).strip())
+        if max_non_null > 0:
+            for val in df.iloc[header_row_idx]:
+                if pd.notna(val) and str(val).strip():
+                    headers.append(str(val).strip())
+                    
         return headers, content
 
     @staticmethod
     def parse_mapped_records(file_bytes: bytes, mapping: Dict[str, str], school_id: str) -> Dict[str, Any]:
         try:
-            df = pd.read_excel(io.BytesIO(file_bytes), dtype=str)
+            # Read first 30 rows to find the header row again
+            df_temp = pd.read_excel(io.BytesIO(file_bytes), header=None, nrows=30, dtype=str)
+            max_non_null = 0
+            header_row_idx = 0
+            for idx, row in df_temp.iterrows():
+                count = sum(1 for val in row if pd.notna(val) and str(val).strip())
+                if count > max_non_null:
+                    max_non_null = count
+                    header_row_idx = idx
+                    
+            # Now read the full dataframe using the correct header row
+            df = pd.read_excel(io.BytesIO(file_bytes), header=header_row_idx, dtype=str)
         except Exception:
             raise ValueError("Failed to parse Excel data.")
             
+        # Clean columns
+        df.columns = [str(c).strip() for c in df.columns]
+        
         # Drop rows where all mapped columns are NaN
         mapped_cols = [col for col in mapping.values() if col in df.columns]
         df.dropna(subset=mapped_cols, how='all', inplace=True)
