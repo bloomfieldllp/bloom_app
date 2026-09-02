@@ -377,9 +377,9 @@ async def add_student(
             standard=standard, division=division, roll_number=roll_number,
             date_of_birth=date_of_birth, address=address, custom_fields=custom_fields
         )
-        return RedirectResponse(url=f"/school/projects/{project_id}?msg=Student+added+successfully", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}/students?msg=Student+added+successfully", status_code=303)
     except ValueError as e:
-        return RedirectResponse(url=f"/school/projects/{project_id}?error={str(e)}", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}/students?error={str(e)}", status_code=303)
 
 @router.post("/projects/{project_id}/students/edit")
 async def edit_student(
@@ -405,9 +405,9 @@ async def edit_student(
             standard=standard, division=division, roll_number=roll_number,
             date_of_birth=date_of_birth, address=address, custom_fields=custom_fields
         )
-        return RedirectResponse(url=f"/school/projects/{project_id}?msg=Student+updated+successfully", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}/students?msg=Student+updated+successfully", status_code=303)
     except ValueError as e:
-        return RedirectResponse(url=f"/school/projects/{project_id}?error={str(e)}", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}/students?error={str(e)}", status_code=303)
 
 @router.get("/schools/{school_id}/fields")
 async def get_school_fields(request: Request, school_id: str, user = Depends(RoleChecker(["school_admin"]))):
