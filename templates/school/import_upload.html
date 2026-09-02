@@ -41,7 +41,7 @@
         </div>
 
         <!-- Form and Dropzone inside card -->
-        <form action="/school/projects/{{ project._id }}/preview" method="POST" enctype="multipart/form-data" id="upload-form" onsubmit="showUploadingState()">
+        <form action="/school/projects/{{ project._id }}/upload-excel" method="POST" enctype="multipart/form-data" id="upload-form" onsubmit="showUploadingState()">
             <div id="dropzone-card" style="margin-bottom: 1.5rem;">
                 <input type="file" id="files" name="files" accept=".csv, .xlsx, .xls" style="display: none;" required multiple onchange="handleFileSelect()">
                 

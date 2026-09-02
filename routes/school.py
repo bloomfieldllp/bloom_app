@@ -116,7 +116,7 @@ async def import_preview(
     
     # Validation for required fields
     if not form_data.get("gr") or not form_data.get("name"):
-        return RedirectResponse(url=f"/school/projects/{project_id}/import?error=GR+and+Name+must+be+mapped", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}/import?error=Please+complete+column+mapping+before+previewing+the+import.", status_code=303)
 
     for key, value in form_data.items():
         if value and key not in ["temp_file_path", "filename"]:
@@ -147,7 +147,7 @@ async def import_preview(
     except Exception:
         temp_doc = None
     if not temp_doc:
-        return RedirectResponse(url=f"/school/projects/{project_id}/import?error=Session+expired", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}/import?error=Your+uploaded+Excel+file+has+expired.+Please+upload+it+again.", status_code=303)
 
     import base64
     combined_bytes = base64.b64decode(temp_doc["file_data"])
@@ -218,7 +218,7 @@ async def execute_import(
         temp_doc = None
         
     if not temp_doc:
-        return RedirectResponse(url=f"/school/projects/{project_id}/import?error=Session+expired", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}/import?error=Your+uploaded+Excel+file+has+expired.+Please+upload+it+again.", status_code=303)
         
     valid_records = temp_doc.get("valid_records", [])
     
