@@ -49,6 +49,7 @@ class LocalDB:
                         school_code TEXT NOT NULL UNIQUE,
                         location_link TEXT,
                         status TEXT NOT NULL,
+                        field_definitions TEXT,
                         updated_at TEXT NOT NULL
                     );
                 """)
@@ -103,6 +104,10 @@ class LocalDB:
                     pass
                 try:
                     conn.execute("ALTER TABLE schools ADD COLUMN custom_fields TEXT;")
+                except Exception:
+                    pass
+                try:
+                    conn.execute("ALTER TABLE schools ADD COLUMN field_definitions TEXT;")
                 except Exception:
                     pass
 
@@ -414,6 +419,8 @@ class LocalDB:
                     student.get("standard") or student.get("class_name") or "",
                     student.get("division") or student.get("section") or "",
                     student.get("roll_number"),
+                    student.get("date_of_birth"),
+                    student.get("address"),
                     str(student.get("school_id") or ""),
                     str(student.get("project_id") or ""),
                     student.get("photo_status", "not_captured"),
@@ -421,7 +428,8 @@ class LocalDB:
                     student.get("photo_path"),
                     student.get("updated_at", datetime.now(timezone.utc).isoformat()),
                     student.get("local_updated_at"),
-                    raw_data_str
+                    raw_data_str,
+                    custom_fields_str
                 ))
         finally:
             conn.close()
