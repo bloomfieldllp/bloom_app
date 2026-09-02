@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Internal Server Error{% endblock %}
+{% block content %}
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; text-align: center; font-family: 'Inter', sans-serif;">
+    <h1 style="font-size: 6rem; margin: 0; color: #dc2626;">500</h1>
+    <h2 style="font-size: 2rem; margin: 0 0 1rem 0; color: #1a1a19;">Internal Server Error</h2>
+    <p style="color: #5C5A56; max-width: 500px; margin-bottom: 2rem;">We're sorry, but something went wrong on our end. Our team has been notified.</p>
+    {% if error_id %}
+    <p style="color: #737373; font-size: 0.85rem; margin-bottom: 2rem;">Error ID: <code>{{ error_id }}</code></p>
+    {% endif %}
+    <a href="/" style="padding: 12px 24px; background-color: #1a1a19; color: white; border-radius: 8px; text-decoration: none; font-weight: 500;">Return to Dashboard</a>
+</div>
+{% endblock %}

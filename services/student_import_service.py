@@ -547,7 +547,8 @@ class StudentImportService:
             "duplicate_gr_in_db_count": len(duplicate_gr_in_db),
             "duplicate_gr_in_db": duplicate_gr_in_db,
             "missing_gr_count": missing_gr_count,
-            "missing_name_count": missing_name_count
+            "missing_name_count": missing_name_count,
+            "missing_std_count": 0
         }
 
 
