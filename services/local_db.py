@@ -369,7 +369,7 @@ class LocalDB:
             elif isinstance(student["custom_fields"], str):
                 custom_fields_str = student["custom_fields"]
 
-try:
+        try:
             with conn:
                 conn.execute("""
                     INSERT INTO students (id, name, gr, standard, division, roll_number, date_of_birth, address, school_id, project_id, photo_status, photo_filename, photo_path, updated_at, local_updated_at, raw_data, custom_fields)
@@ -416,24 +416,18 @@ try:
             row = conn.execute("SELECT * FROM students WHERE id = ?", (student_id,)).fetchone()
             if row:
                 s = dict(row)
-                # Link standard and division keys to support class_name and section
                 s["class_name"] = s["standard"]
                 s["section"] = s["division"]
                 s["_id"] = s["id"]
+                
                 if s.get("raw_data"):
                     try:
                         s["raw_data"] = json.loads(s["raw_data"])
                     except Exception:
                         s["raw_data"] = {}
-                if s.get("custom_fields"):
-                    try:
-                        s["custom_fields"] = json.loads(s["custom_fields"])
-                    except Exception:
-                        s["custom_fields"] = {}
-                else:
-                    s["custom_fields"] = {}
                 else:
                     s["raw_data"] = {}
+                    
                 if s.get("custom_fields"):
                     try:
                         s["custom_fields"] = json.loads(s["custom_fields"])
@@ -441,6 +435,7 @@ try:
                         s["custom_fields"] = {}
                 else:
                     s["custom_fields"] = {}
+                    
                 return s
             return None
         finally:
@@ -452,25 +447,20 @@ try:
         try:
             rows = conn.execute("SELECT * FROM students WHERE project_id = ?", (project_id,)).fetchall()
             students = []
-            for r in rows:
-                s = dict(r)
+            for row in rows:
+                s = dict(row)
                 s["class_name"] = s["standard"]
                 s["section"] = s["division"]
                 s["_id"] = s["id"]
+                
                 if s.get("raw_data"):
                     try:
                         s["raw_data"] = json.loads(s["raw_data"])
                     except Exception:
                         s["raw_data"] = {}
-                if s.get("custom_fields"):
-                    try:
-                        s["custom_fields"] = json.loads(s["custom_fields"])
-                    except Exception:
-                        s["custom_fields"] = {}
-                else:
-                    s["custom_fields"] = {}
                 else:
                     s["raw_data"] = {}
+                    
                 if s.get("custom_fields"):
                     try:
                         s["custom_fields"] = json.loads(s["custom_fields"])
@@ -478,6 +468,7 @@ try:
                         s["custom_fields"] = {}
                 else:
                     s["custom_fields"] = {}
+                    
                 students.append(s)
             return students
         finally:
