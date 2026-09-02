@@ -28,7 +28,7 @@
                 <span style="font-size: 1.1rem; font-weight: 800; color: #2E7D32;">{{ project.photographed_students or 0 }}</span>
             </div>
             <div style="width: 1px; background: #EBEAE4;"></div>
-            <button onclick="openAddStudentModal('/school/projects/{{ project._id }}/students/add')" class="btn-primary-dark" style="font-size: 0.85rem; padding: 8px 16px;">+ Add Student</button>
+            <button onclick="openAddStudentModal('/school/projects/{{ project._id }}/students/add', '/school', '{{ project.school_id }}')" class="btn-primary-dark" style="font-size: 0.85rem; padding: 8px 16px;">+ Add Student</button>
         </div>
     </div>
 

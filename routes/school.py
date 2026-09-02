@@ -64,15 +64,17 @@ async def import_preview(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
         
-    # Read bytes from all files
+    db = get_db()
     files_data = []
+    filename = "combined_upload"
     for f in files:
         if f.filename:
             content = await f.read()
             files_data.append((content, f.filename))
+            filename = f.filename
             
     try:
-        combined_bytes, headers, preview_rows, total_rows = StudentImportService.combine_multiple_files(files_data)
+        report = StudentImportService.intelligent_parse_records(files_data, school_id)
     except ValueError as e:
         return templates.TemplateResponse(request=request, name="school/import_upload.html", context={
             "user": user,
@@ -80,85 +82,26 @@ async def import_preview(
             "error": str(e)
         })
         
-    # Save combined output temporarily to MongoDB instead of disk
-    db = get_db()
-    temp_id = ObjectId()
-    db.temp_files.insert_one({
-        "_id": temp_id,
-        "file_bytes": combined_bytes,
-        "filename": "combined_student_records.csv",
-        "created_at": datetime.now(timezone.utc)
-    })
-    temp_path = str(temp_id)
-        
-    return templates.TemplateResponse(request=request, name="school/import_map.html", context={
-        "user": user,
-        "project": project,
-        "headers": headers,
-        "preview_rows": preview_rows,
-        "total_rows": total_rows,
-        "temp_file_path": temp_path,
-        "filename": "combined_student_records.csv"
-    })
-
-@router.post("/projects/{project_id}/validate", response_class=HTMLResponse)
-async def import_validate(
-    request: Request,
-    project_id: str,
-    temp_file_path: str = Form(...),
-    filename: str = Form(...),
-    gr: str = Form(...),
-    name: str = Form(...),
-    standard: Optional[str] = Form(None),
-    roll_number: Optional[str] = Form(None),
-    division: Optional[str] = Form(None),
-    user = Depends(RoleChecker(["school_admin"]))
-):
-    school_id = user["school_id"]
-    project = ProjectService.get_project(project_id, school_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-        
-    db = get_db()
-    try:
-        temp_file = db.temp_files.find_one({"_id": ObjectId(temp_file_path)})
-    except Exception:
-        temp_file = None
-        
-    if not temp_file:
-        raise HTTPException(status_code=400, detail="Temporary file session expired.")
-        
-    file_bytes = temp_file["file_bytes"]
-    filename = temp_file.get("filename", "combined_student_records.csv")
-        
-    mapping = {
-        "gr": gr,
-        "name": name,
-        "standard": standard,
-        "roll_number": roll_number,
-        "division": division
-    }
+    import base64
+    import pickle
     
-    try:
-        report = StudentImportService.validate_and_parse_records(
-            file_bytes, filename, mapping, project_id
-        )
-    except ValueError as e:
-        return templates.TemplateResponse(request=request, name="school/import_upload.html", context={
-            "user": user,
-            "project": project,
-            "error": str(e)
-        })
+    temp_doc = {
+        "valid_records": report["valid_records"],
+        "new_custom_fields": report["new_custom_fields"],
+        "created_at": datetime.now(timezone.utc)
+    }
+    temp_id = str(db.temp_files.insert_one(temp_doc).inserted_id)
         
     return templates.TemplateResponse(request=request, name="school/import_preview.html", context={
         "user": user,
         "project": project,
         "report": report,
-        "temp_file_path": temp_file_path,
+        "temp_file_path": temp_id,
         "filename": filename,
-        "mapping_json": json.dumps(mapping),
         "existing_count": ProjectService.get_project_stats(project_id)["total_students"]
     })
+
+
 
 @router.post("/projects/{project_id}/execute-import")
 async def execute_import(
@@ -166,7 +109,6 @@ async def execute_import(
     project_id: str,
     temp_file_path: str = Form(...),
     filename: str = Form(...),
-    mapping_json: str = Form(...),
     import_action: str = Form(...),
     user = Depends(RoleChecker(["school_admin"]))
 ):
@@ -177,29 +119,24 @@ async def execute_import(
         
     db = get_db()
     try:
-        temp_file = db.temp_files.find_one({"_id": ObjectId(temp_file_path)})
+        from bson import ObjectId
+        temp_doc = db.temp_files.find_one({"_id": ObjectId(temp_file_path)})
     except Exception:
-        temp_file = None
+        temp_doc = None
         
-    if not temp_file:
-        raise HTTPException(status_code=400, detail="Temporary file session expired.")
+    if not temp_doc:
+        return RedirectResponse(url=f"/school/projects/{project_id}/import?error=Session+expired", status_code=303)
         
-    file_bytes = temp_file["file_bytes"]
-        
-    mapping = json.loads(mapping_json)
-    
-    report = StudentImportService.validate_and_parse_records(
-        file_bytes, filename, mapping, project_id, school_id
-    )
-    
-    valid_records = report["valid_records"]
+    valid_records = temp_doc.get("valid_records", [])
+    new_custom_fields = temp_doc.get("new_custom_fields", {})
     
     try:
-        result = StudentImportService.execute_import(
+        result = StudentImportService.intelligent_execute_import(
             school_id=school_id,
             project_id=project_id,
             valid_records=valid_records,
-            action=import_action
+            action=import_action,
+            new_custom_fields=new_custom_fields
         )
     except Exception as e:
         import traceback
@@ -207,7 +144,7 @@ async def execute_import(
         logging.error(f"Import execution failed: {e}")
         logging.error(traceback.format_exc())
         return RedirectResponse(
-            url=f"/school/projects/{project_id}/import?error=An+unexpected+error+occurred+during+import.+Please+contact+support.",
+            url=f"/school/projects/{project_id}/import?error=An+unexpected+error+occurred",
             status_code=303
         )
     
@@ -326,62 +263,85 @@ async def student_list(
 async def add_student(
     request: Request,
     project_id: str,
-    gr: str = Form(...),
-    name: str = Form(...),
-    standard: Optional[str] = Form(""),
-    division: Optional[str] = Form(""),
-    roll_number: Optional[str] = Form(""),
     user = Depends(RoleChecker(["school_admin"]))
 ):
-    school_id = user["school_id"]
-    project = ProjectService.get_project(project_id, school_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    form_data = await request.form()
+    gr = form_data.get("gr", "")
+    name = form_data.get("name", "")
+    standard = form_data.get("standard", "")
+    division = form_data.get("division", "")
+    roll_number = form_data.get("roll_number", "")
+    date_of_birth = form_data.get("date_of_birth", "")
+    address = form_data.get("address", "")
+    
+    custom_fields = {k.replace("custom_", ""): v for k, v in form_data.items() if k.startswith("custom_")}
+    
+    project = ProjectService.get_project(project_id)
+    if not project: raise HTTPException(status_code=404, detail="Project not found")
+    school_id = str(project["school_id"])
         
     from services.student_service import StudentService
     try:
         StudentService.create_student(
-            school_id=school_id,
-            project_id=project_id,
-            gr=gr,
-            name=name,
-            standard=standard,
-            division=division,
-            roll_number=roll_number
+            school_id=school_id, project_id=project_id, gr=gr, name=name,
+            standard=standard, division=division, roll_number=roll_number,
+            date_of_birth=date_of_birth, address=address, custom_fields=custom_fields
         )
-        return RedirectResponse(url=f"/school/projects/{project_id}/students?msg=Student+added+successfully", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}?msg=Student+added+successfully", status_code=303)
     except ValueError as e:
-        return RedirectResponse(url=f"/school/projects/{project_id}/students?error={str(e)}", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}?error={str(e)}", status_code=303)
 
 @router.post("/projects/{project_id}/students/edit")
 async def edit_student(
     request: Request,
     project_id: str,
-    student_id: str = Form(...),
-    name: str = Form(...),
-    standard: Optional[str] = Form(""),
-    division: Optional[str] = Form(""),
-    roll_number: Optional[str] = Form(""),
     user = Depends(RoleChecker(["school_admin"]))
 ):
-    school_id = user["school_id"]
-    project = ProjectService.get_project(project_id, school_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-        
+    form_data = await request.form()
+    student_id = form_data.get("student_id")
+    name = form_data.get("name", "")
+    standard = form_data.get("standard", "")
+    division = form_data.get("division", "")
+    roll_number = form_data.get("roll_number", "")
+    date_of_birth = form_data.get("date_of_birth", "")
+    address = form_data.get("address", "")
+    
+    custom_fields = {k.replace("custom_", ""): v for k, v in form_data.items() if k.startswith("custom_")}
+    
     from services.student_service import StudentService
-    student = StudentService.get_student(student_id)
-    if not student or student["school_id"] != school_id:
-        raise HTTPException(status_code=403, detail="Unauthorized to edit this student")
-        
     try:
         StudentService.update_student(
-            student_id=student_id,
-            name=name,
-            standard=standard,
-            division=division,
-            roll_number=roll_number
+            student_id=student_id, name=name,
+            standard=standard, division=division, roll_number=roll_number,
+            date_of_birth=date_of_birth, address=address, custom_fields=custom_fields
         )
-        return RedirectResponse(url=f"/school/projects/{project_id}/students?msg=Student+updated+successfully", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}?msg=Student+updated+successfully", status_code=303)
     except ValueError as e:
-        return RedirectResponse(url=f"/school/projects/{project_id}/students?error={str(e)}", status_code=303)
+        return RedirectResponse(url=f"/school/projects/{project_id}?error={str(e)}", status_code=303)
+
+@router.get("/schools/{school_id}/fields")
+async def get_school_fields(request: Request, school_id: str, user = Depends(RoleChecker(["school_admin"]))):
+    from database import get_db
+    db = get_db()
+    try:
+        from bson import ObjectId
+        school = db.schools.find_one({"_id": ObjectId(school_id)})
+        if school and "custom_fields" in school:
+            return school["custom_fields"]
+    except Exception:
+        pass
+        
+    # If offline, get from local SQLite
+    if getattr(request.app.state, "is_local_operator", False) or True: # fallback
+        try:
+            from services.local_db import LocalDB
+            conn = LocalDB.get_connection()
+            row = conn.execute("SELECT custom_fields FROM schools WHERE id = ?", (school_id,)).fetchone()
+            if row and row[0]:
+                import json
+                return json.loads(row[0])
+        except Exception:
+            pass
+            
+    return []
+

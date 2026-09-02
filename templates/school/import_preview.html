@@ -51,6 +51,21 @@
             </div>
         </div>
 
+        
+        <!-- Intelligent Parsing Summary -->
+        <div style="background-color: #f0f7ff; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: left; border: 1px solid #d0e3ff;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #0056b3; font-size: 0.9rem; font-weight: 700;">Intelligent Parsing Results</h4>
+            <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.8rem; color: #333; line-height: 1.4;">
+                <li><strong>Blocks detected:</strong> {{ report.blocks_detected }}</li>
+                <li><strong>Standard fields detected:</strong> {{ report.detected_standard_fields | join(', ') }}</li>
+                {% if report.new_custom_fields %}
+                <li style="color: #008000;"><strong>New custom fields discovered:</strong>
+                    {% for k, v in report.new_custom_fields.items() %}{{ v }}{% if not loop.last %}, {% endif %}{% endfor %}
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+
         <!-- Issues details box -->
         {% if report.duplicate_gr_in_file_count > 0 or report.duplicate_gr_in_db_count > 0 or (report.missing_name_count + report.missing_gr_count + report.missing_std_count) > 0 %}
             <div style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; padding-right: 5px; margin-bottom: 1.5rem; text-align: left;">
@@ -106,7 +121,7 @@
                 <!-- Hidden inputs -->
                 <input type="hidden" name="temp_file_path" value="{{ temp_file_path }}">
                 <input type="hidden" name="filename" value="{{ filename }}">
-                <input type="hidden" name="mapping_json" value="{{ mapping_json }}">
+                
                 
                 <div>
                     <h3 style="font-weight: 700; font-size: 1.05rem; margin: 0 0 0.5rem 0;" id="lbl-actions-title">Import Actions</h3>

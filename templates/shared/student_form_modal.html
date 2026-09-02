@@ -25,6 +25,20 @@
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <!-- Date of Birth Field -->
+                    <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                        <label for="date_of_birth" style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #5C5A56;">Date of Birth</label>
+                        <input type="date" id="date_of_birth" name="date_of_birth" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #EBEAE4; font-size: 1rem;">
+                    </div>
+                    
+                    <!-- Address Field -->
+                    <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                        <label for="address" style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #5C5A56;">Address</label>
+                        <input type="text" id="address" name="address" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #EBEAE4; font-size: 1rem;">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <!-- Standard Field -->
                     <div style="display: flex; flex-direction: column; gap: 0.4rem;">
                         <label for="standard" style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #5C5A56;">Standard</label>
@@ -43,6 +57,9 @@
                     <label for="roll_number" style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #5C5A56;">Roll Number</label>
                     <input type="text" id="roll_number" name="roll_number" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #EBEAE4; font-size: 1rem;">
                 </div>
+                
+                <!-- Dynamic Fields Container -->
+                <div id="dynamic-fields-container" style="display: flex; flex-direction: column; gap: 1rem;"></div>
             </div>
             
             <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem;">
@@ -54,7 +71,53 @@
 </div>
 
 <script>
-function openAddStudentModal(actionUrl) {
+async function loadDynamicFields(apiBase, schoolId, studentData = null) {
+    const container = document.getElementById('dynamic-fields-container');
+    container.innerHTML = '';
+    if (!schoolId) return;
+    
+    try {
+        const response = await fetch(`${apiBase}/schools/${schoolId}/fields`);
+        const fields = await response.json();
+        
+        fields.forEach(f => {
+            if (!f.active) return;
+            const val = studentData && studentData.custom_fields && studentData.custom_fields[f.key] ? studentData.custom_fields[f.key] : '';
+            
+            const div = document.createElement('div');
+            div.style.display = 'flex';
+            div.style.flexDirection = 'column';
+            div.style.gap = '0.4rem';
+            
+            const label = document.createElement('label');
+            label.htmlFor = `custom_${f.key}`;
+            label.style.fontSize = '0.8rem';
+            label.style.fontWeight = '700';
+            label.style.textTransform = 'uppercase';
+            label.style.color = '#5C5A56';
+            label.innerText = f.label + (f.required ? ' *' : '');
+            
+            const input = document.createElement('input');
+            input.type = f.type === 'date' ? 'date' : (f.type === 'number' ? 'number' : 'text');
+            input.id = `custom_${f.key}`;
+            input.name = `custom_${f.key}`;
+            input.value = val;
+            if (f.required) input.required = true;
+            input.style.padding = '10px 14px';
+            input.style.borderRadius = '8px';
+            input.style.border = '1px solid #EBEAE4';
+            input.style.fontSize = '1rem';
+            
+            div.appendChild(label);
+            div.appendChild(input);
+            container.appendChild(div);
+        });
+    } catch (e) {
+        console.error("Failed to load dynamic fields:", e);
+    }
+}
+
+function openAddStudentModal(actionUrl, apiBase, schoolId) {
     document.getElementById('modal-title').innerText = 'Add Student';
     document.getElementById('student-form').action = actionUrl;
     document.getElementById('student_id').value = '';
@@ -66,17 +129,21 @@ function openAddStudentModal(actionUrl) {
     document.getElementById('gr-help').style.display = 'none';
     
     document.getElementById('name').value = '';
+    document.getElementById('date_of_birth').value = '';
+    document.getElementById('address').value = '';
     document.getElementById('standard').value = '';
     document.getElementById('division').value = '';
     document.getElementById('roll_number').value = '';
     
     document.getElementById('modal-error-container').style.display = 'none';
     
+    loadDynamicFields(apiBase, schoolId, null);
+    
     const modal = document.getElementById('student-modal');
     modal.style.display = 'flex';
 }
 
-function openEditStudentModal(actionUrl, student) {
+function openEditStudentModal(actionUrl, student, apiBase, schoolId) {
     document.getElementById('modal-title').innerText = 'Edit Student';
     document.getElementById('student-form').action = actionUrl;
     document.getElementById('student_id').value = student.id || student._id;
@@ -88,11 +155,15 @@ function openEditStudentModal(actionUrl, student) {
     document.getElementById('gr-help').style.display = 'block';
     
     document.getElementById('name').value = student.name || '';
+    document.getElementById('date_of_birth').value = student.date_of_birth || '';
+    document.getElementById('address').value = student.address || '';
     document.getElementById('standard').value = student.standard || student.class_name || '';
     document.getElementById('division').value = student.division || student.section || '';
     document.getElementById('roll_number').value = student.roll_number || '';
     
     document.getElementById('modal-error-container').style.display = 'none';
+    
+    loadDynamicFields(apiBase, schoolId, student);
     
     const modal = document.getElementById('student-modal');
     modal.style.display = 'flex';

@@ -486,7 +486,7 @@ async def admin_student_list(
     total = db.students.count_documents(query)
     skip = (page - 1) * limit
     
-    projection = {"_id": 1, "gr": 1, "name": 1, "standard": 1, "division": 1, "roll_number": 1, "photo_status": 1}
+    projection = {"_id": 1, "gr": 1, "name": 1, "standard": 1, "division": 1, "roll_number": 1, "photo_status": 1, "date_of_birth": 1, "address": 1, "custom_fields": 1, "date_of_birth": 1, "address": 1, "custom_fields": 1}
     students = list(db.students.find(query, projection).skip(skip).limit(limit))
     for s in students: s["_id"] = str(s["_id"])
         
@@ -520,13 +520,19 @@ async def admin_student_list(
 async def add_student(
     request: Request,
     project_id: str,
-    gr: str = Form(...),
-    name: str = Form(...),
-    standard: Optional[str] = Form(""),
-    division: Optional[str] = Form(""),
-    roll_number: Optional[str] = Form(""),
     user = Depends(RoleChecker(["bloom_admin"]))
 ):
+    form_data = await request.form()
+    gr = form_data.get("gr", "")
+    name = form_data.get("name", "")
+    standard = form_data.get("standard", "")
+    division = form_data.get("division", "")
+    roll_number = form_data.get("roll_number", "")
+    date_of_birth = form_data.get("date_of_birth", "")
+    address = form_data.get("address", "")
+    
+    custom_fields = {k.replace("custom_", ""): v for k, v in form_data.items() if k.startswith("custom_")}
+    
     project = ProjectService.get_project(project_id)
     if not project: raise HTTPException(status_code=404, detail="Project not found")
     school_id = str(project["school_id"])
@@ -535,7 +541,8 @@ async def add_student(
     try:
         StudentService.create_student(
             school_id=school_id, project_id=project_id, gr=gr, name=name,
-            standard=standard, division=division, roll_number=roll_number
+            standard=standard, division=division, roll_number=roll_number,
+            date_of_birth=date_of_birth, address=address, custom_fields=custom_fields
         )
         return RedirectResponse(url=f"/admin/projects/{project_id}/students?msg=Student+added+successfully", status_code=303)
     except ValueError as e:
@@ -545,27 +552,80 @@ async def add_student(
 async def edit_student(
     request: Request,
     project_id: str,
-    student_id: str = Form(...),
-    name: str = Form(...),
-    standard: Optional[str] = Form(""),
-    division: Optional[str] = Form(""),
-    roll_number: Optional[str] = Form(""),
     user = Depends(RoleChecker(["bloom_admin"]))
 ):
-    project = ProjectService.get_project(project_id)
-    if not project: raise HTTPException(status_code=404, detail="Project not found")
-    school_id = str(project["school_id"])
-        
+    form_data = await request.form()
+    student_id = form_data.get("student_id")
+    name = form_data.get("name", "")
+    standard = form_data.get("standard", "")
+    division = form_data.get("division", "")
+    roll_number = form_data.get("roll_number", "")
+    date_of_birth = form_data.get("date_of_birth", "")
+    address = form_data.get("address", "")
+    
+    custom_fields = {k.replace("custom_", ""): v for k, v in form_data.items() if k.startswith("custom_")}
+    
     from services.student_service import StudentService
-    student = StudentService.get_student(student_id)
-    if not student or student["school_id"] != school_id:
-        raise HTTPException(status_code=403, detail="Unauthorized to edit this student")
-        
     try:
         StudentService.update_student(
-            student_id=student_id, name=name, standard=standard,
-            division=division, roll_number=roll_number
+            student_id=student_id, name=name,
+            standard=standard, division=division, roll_number=roll_number,
+            date_of_birth=date_of_birth, address=address, custom_fields=custom_fields
         )
         return RedirectResponse(url=f"/admin/projects/{project_id}/students?msg=Student+updated+successfully", status_code=303)
     except ValueError as e:
         return RedirectResponse(url=f"/admin/projects/{project_id}/students?error={str(e)}", status_code=303)
+
+@router.get("/schools/{school_id}/fields")
+async def get_school_fields(request: Request, school_id: str, user = Depends(RoleChecker(["bloom_admin"]))):
+    from database import get_db
+    db = get_db()
+    try:
+        from bson import ObjectId
+        school = db.schools.find_one({"_id": ObjectId(school_id)})
+        if school and "custom_fields" in school:
+            return school["custom_fields"]
+    except Exception:
+        pass
+        
+    # If offline, get from local SQLite
+    if getattr(request.app.state, "is_local_operator", False) or True: # fallback
+        try:
+            from services.local_db import LocalDB
+            conn = LocalDB.get_connection()
+            row = conn.execute("SELECT custom_fields FROM schools WHERE id = ?", (school_id,)).fetchone()
+            if row and row[0]:
+                import json
+                return json.loads(row[0])
+        except Exception:
+            pass
+            
+    return []
+
+
+@router.get("/schools/{school_id}/fields")
+async def get_school_fields(request: Request, school_id: str, user = Depends(RoleChecker(["bloom_admin"]))):
+    from database import get_db
+    db = get_db()
+    try:
+        from bson import ObjectId
+        school = db.schools.find_one({"_id": ObjectId(school_id)})
+        if school and "custom_fields" in school:
+            return school["custom_fields"]
+    except Exception:
+        pass
+        
+    # If offline, get from local SQLite
+    if getattr(request.app.state, "is_local_operator", False) or True: # fallback
+        try:
+            from services.local_db import LocalDB
+            conn = LocalDB.get_connection()
+            row = conn.execute("SELECT custom_fields FROM schools WHERE id = ?", (school_id,)).fetchone()
+            if row and row[0]:
+                import json
+                return json.loads(row[0])
+        except Exception:
+            pass
+            
+    return []
+

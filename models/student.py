@@ -10,6 +10,9 @@ class StudentBase(BaseModel):
     standard: str = Field(..., min_length=1)
     roll_number: Optional[str] = None
     division: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    address: Optional[str] = None
+    custom_fields: Dict[str, Any] = Field(default_factory=dict)
     raw_data: Dict[str, Any] = Field(default_factory=dict)
     photo_status: str = Field(default="not_captured", pattern="^(not_captured|captured|pending_retake)$")
 

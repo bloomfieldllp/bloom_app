@@ -207,7 +207,7 @@
                         <span>Filter</span>
                     </button>
                     <!-- Add student button -->
-                    <button type="button" class="btn-primary-dark" onclick="openAddStudentModal('/operator/projects/{{ project._id }}/students/add')" style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; height: 38px;">
+                    <button type="button" class="btn-primary-dark" onclick="openAddStudentModal('/operator/projects/{{ project._id }}/students/add', '/operator', '{{ project.school_id }}')" style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; height: 38px;">
                         + Add Student
                     </button>
                     
@@ -288,7 +288,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <button type="button" class="btn-secondary-light" onclick="event.stopPropagation(); openEditStudentModal('/operator/projects/{{ project._id }}/students/edit', {{ s|tojson|safe }})" style="padding: 4px 8px; font-size: 0.75rem;">Edit</button>
+                                    <button type="button" class="btn-secondary-light" onclick="event.stopPropagation(); openEditStudentModal('/operator/projects/{{ project._id }}/students/edit', {{s | tojson | safe}}, '/operator', '{{ project.school_id }}')" style="padding: 4px 8px; font-size: 0.75rem;">Edit</button>
                                 </td>
                             </tr>
                         {% endfor %}

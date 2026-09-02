@@ -87,6 +87,25 @@ class LocalDB:
                         raw_data TEXT
                     );
                 """)
+                
+                # Migration: Add new columns if missing
+                try:
+                    conn.execute("ALTER TABLE students ADD COLUMN date_of_birth TEXT;")
+                except Exception:
+                    pass
+                try:
+                    conn.execute("ALTER TABLE students ADD COLUMN address TEXT;")
+                except Exception:
+                    pass
+                try:
+                    conn.execute("ALTER TABLE students ADD COLUMN custom_fields TEXT;")
+                except Exception:
+                    pass
+                try:
+                    conn.execute("ALTER TABLE schools ADD COLUMN custom_fields TEXT;")
+                except Exception:
+                    pass
+
                 conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_students_school_gr ON students(school_id, gr);")
                 # Student Photos table
                 conn.execute("""
@@ -342,25 +361,35 @@ class LocalDB:
                 raw_data_str = json.dumps(student["raw_data"])
             elif isinstance(student["raw_data"], str):
                 raw_data_str = student["raw_data"]
+                
+        custom_fields_str = None
+        if "custom_fields" in student:
+            if isinstance(student["custom_fields"], (dict, list)):
+                custom_fields_str = json.dumps(student["custom_fields"])
+            elif isinstance(student["custom_fields"], str):
+                custom_fields_str = student["custom_fields"]
 
-        try:
+try:
             with conn:
                 conn.execute("""
-                    INSERT INTO students (id, name, gr, standard, division, roll_number, school_id, project_id, photo_status, photo_filename, photo_path, updated_at, local_updated_at, raw_data)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO students (id, name, gr, standard, division, roll_number, date_of_birth, address, school_id, project_id, photo_status, photo_filename, photo_path, updated_at, local_updated_at, raw_data, custom_fields)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         name=excluded.name,
                         gr=excluded.gr,
                         standard=excluded.standard,
                         division=excluded.division,
                         roll_number=excluded.roll_number,
+                        date_of_birth=excluded.date_of_birth,
+                        address=excluded.address,
                         school_id=excluded.school_id,
                         project_id=excluded.project_id,
                         photo_status=excluded.photo_status,
                         photo_filename=COALESCE(excluded.photo_filename, students.photo_filename),
                         photo_path=COALESCE(excluded.photo_path, students.photo_path),
                         updated_at=excluded.updated_at,
-                        raw_data=excluded.raw_data
+                        raw_data=excluded.raw_data,
+                        custom_fields=excluded.custom_fields
                 """, (
                     str(student.get("_id") or student.get("id")),
                     student.get("name", ""),
@@ -396,8 +425,22 @@ class LocalDB:
                         s["raw_data"] = json.loads(s["raw_data"])
                     except Exception:
                         s["raw_data"] = {}
+                if s.get("custom_fields"):
+                    try:
+                        s["custom_fields"] = json.loads(s["custom_fields"])
+                    except Exception:
+                        s["custom_fields"] = {}
+                else:
+                    s["custom_fields"] = {}
                 else:
                     s["raw_data"] = {}
+                if s.get("custom_fields"):
+                    try:
+                        s["custom_fields"] = json.loads(s["custom_fields"])
+                    except Exception:
+                        s["custom_fields"] = {}
+                else:
+                    s["custom_fields"] = {}
                 return s
             return None
         finally:
@@ -419,8 +462,22 @@ class LocalDB:
                         s["raw_data"] = json.loads(s["raw_data"])
                     except Exception:
                         s["raw_data"] = {}
+                if s.get("custom_fields"):
+                    try:
+                        s["custom_fields"] = json.loads(s["custom_fields"])
+                    except Exception:
+                        s["custom_fields"] = {}
+                else:
+                    s["custom_fields"] = {}
                 else:
                     s["raw_data"] = {}
+                if s.get("custom_fields"):
+                    try:
+                        s["custom_fields"] = json.loads(s["custom_fields"])
+                    except Exception:
+                        s["custom_fields"] = {}
+                else:
+                    s["custom_fields"] = {}
                 students.append(s)
             return students
         finally:

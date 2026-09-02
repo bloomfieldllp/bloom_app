@@ -35,7 +35,7 @@
                                 </span>
                             </td>
                             <td style="padding: 12px 16px !important;">
-                                <button onclick='openEditStudentModal("/admin/projects/{{ project._id }}/students/edit", {{ student|tojson|safe }})' class="btn-secondary-light" style="font-size: 0.75rem; padding: 4px 8px;">Edit</button>
+                                <button onclick='openEditStudentModal('/admin/projects/{{ project._id }}/students/edit', {{student | tojson | safe}}, '/admin', '{{ project.school_id }}')' class="btn-secondary-light" style="font-size: 0.75rem; padding: 4px 8px;">Edit</button>
                             </td>
                         </tr>
                     {% endfor %}

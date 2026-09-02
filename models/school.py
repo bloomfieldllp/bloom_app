@@ -14,6 +14,7 @@ class SchoolBase(BaseModel):
     school_email: Optional[EmailStr] = None
     location_link: str = Field(..., min_length=5, description="Compulsory school location map link")
     status: str = Field(default="active", pattern="^(active|inactive)$")
+    custom_fields: Optional[list] = Field(default_factory=list, description="School-specific custom field definitions")
 
 class SchoolCreate(SchoolBase):
     pass
