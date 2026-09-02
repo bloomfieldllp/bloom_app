@@ -13,6 +13,7 @@ from database import get_db
 from services.file_watcher import WatcherService
 from services.local_db import LocalDB
 from services.sync_service import SyncService
+from services.project_service import ProjectService
 from config import settings
 
 from utils import get_templates
@@ -328,7 +329,28 @@ async def view_session(
         "photographed_percentage": photographed_percentage,
         "can_end": can_end,
         "distinct_standards": distinct_standards,
-        "distinct_divisions": distinct_divisions
+        "distinct_divisions": distinct_divisions,
+        "msg": request.query_params.get("msg", ""),
+        "error": request.query_params.get("error", "")
+    })
+
+@router.get("/projects/{project_id}/settings")
+async def project_settings(
+    request: Request,
+    project_id: str,
+    user = Depends(RoleChecker(["bloom_operator"]))
+):
+    project = ProjectService.get_project(project_id)
+    if not project or project.get("assigned_operator_id") != str(user["id"]):
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    school = LocalDB.get_school(str(project["school_id"]))
+    
+    return templates.TemplateResponse(request=request, name="operator/settings.html", context={
+        "user": user,
+        "project": project,
+        "school": school,
+        "msg": request.query_params.get("msg", ""),
+        "error": request.query_params.get("error", "")
     })
 
 @router.post("/projects/{project_id}/config")
@@ -865,3 +887,67 @@ async def trigger_sync_action(user = Depends(RoleChecker(["bloom_operator"]))):
     SyncService.trigger_sync()
     return {"status": "success"}
 
+
+@router.post("/projects/{project_id}/students/add")
+async def add_student(
+    request: Request,
+    project_id: str,
+    gr: str = Form(...),
+    name: str = Form(...),
+    standard: Optional[str] = Form(""),
+    division: Optional[str] = Form(""),
+    roll_number: Optional[str] = Form(""),
+    user = Depends(RoleChecker(["bloom_operator"]))
+):
+    project = ProjectService.get_project(project_id)
+    if not project or project.get("assigned_operator_id") != str(user["id"]):
+        raise HTTPException(status_code=403, detail="Unauthorized for this project")
+    school_id = str(project["school_id"])
+        
+    from services.student_service import StudentService
+    try:
+        StudentService.create_student(
+            school_id=school_id,
+            project_id=project_id,
+            gr=gr,
+            name=name,
+            standard=standard,
+            division=division,
+            roll_number=roll_number
+        )
+        return RedirectResponse(url=f"/operator/projects/{project_id}/session?msg=Student+added+successfully", status_code=303)
+    except ValueError as e:
+        return RedirectResponse(url=f"/operator/projects/{project_id}/session?error={str(e)}", status_code=303)
+
+@router.post("/projects/{project_id}/students/edit")
+async def edit_student(
+    request: Request,
+    project_id: str,
+    student_id: str = Form(...),
+    name: str = Form(...),
+    standard: Optional[str] = Form(""),
+    division: Optional[str] = Form(""),
+    roll_number: Optional[str] = Form(""),
+    user = Depends(RoleChecker(["bloom_operator"]))
+):
+    project = ProjectService.get_project(project_id)
+    if not project or project.get("assigned_operator_id") != str(user["id"]):
+        raise HTTPException(status_code=403, detail="Unauthorized for this project")
+    school_id = str(project["school_id"])
+        
+    from services.student_service import StudentService
+    student = StudentService.get_student(student_id)
+    if not student or student["school_id"] != school_id:
+        raise HTTPException(status_code=403, detail="Unauthorized to edit this student")
+        
+    try:
+        StudentService.update_student(
+            student_id=student_id,
+            name=name,
+            standard=standard,
+            division=division,
+            roll_number=roll_number
+        )
+        return RedirectResponse(url=f"/operator/projects/{project_id}/session?msg=Student+updated+successfully", status_code=303)
+    except ValueError as e:
+        return RedirectResponse(url=f"/operator/projects/{project_id}/session?error={str(e)}", status_code=303)

@@ -15,8 +15,11 @@ class LocalDB:
         db_path = settings.SQLITE_DB_PATH
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
-        # Enable foreign keys
+        # Enable foreign keys and concurrency protections
         conn.execute("PRAGMA foreign_keys = ON;")
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
+        conn.execute("PRAGMA busy_timeout = 5000;")
         return conn
 
     @classmethod
@@ -84,6 +87,7 @@ class LocalDB:
                         raw_data TEXT
                     );
                 """)
+                conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_students_school_gr ON students(school_id, gr);")
                 # Student Photos table
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS student_photos (
@@ -442,65 +446,79 @@ class LocalDB:
 
     @classmethod
     def assign_photo(cls, student_id: str, photo_doc: Dict[str, Any], operation_id: str):
-        conn = cls.get_connection()
-        try:
-            with conn:
-                # 1. Update previous photos to not current
-                conn.execute("UPDATE student_photos SET is_current = 0 WHERE student_id = ?", (student_id,))
-                
-                # 2. Insert new photo doc
-                photo_id = photo_doc.get("id") or str(uuid.uuid4())
-                conn.execute("""
-                    INSERT INTO student_photos (id, student_id, original_filename, final_filename, relative_path, storage_type, version, status, captured_at, is_current)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-                """, (
-                    photo_id,
-                    student_id,
-                    photo_doc["original_filename"],
-                    photo_doc["final_filename"],
-                    photo_doc["relative_path"],
-                    photo_doc["storage_type"],
-                    photo_doc["version"],
-                    photo_doc["status"],
-                    photo_doc["captured_at"].isoformat() if isinstance(photo_doc["captured_at"], datetime) else photo_doc["captured_at"]
-                ))
-                
-                # 3. Update student state
-                now_str = datetime.now(timezone.utc).isoformat()
-                conn.execute("""
-                    UPDATE students 
-                    SET photo_status = 'captured', photo_filename = ?, photo_path = ?, updated_at = ?, local_updated_at = ?
-                    WHERE id = ?
-                """, (
-                    photo_doc["final_filename"],
-                    photo_doc["relative_path"],
-                    now_str,
-                    now_str,
-                    student_id
-                ))
-                
-                # 4. Insert pending operation
-                payload = json.dumps({
-                    "photo_id": photo_id,
-                    "original_filename": photo_doc["original_filename"],
-                    "final_filename": photo_doc["final_filename"],
-                    "relative_path": photo_doc["relative_path"],
-                    "storage_type": photo_doc["storage_type"],
-                    "version": photo_doc["version"],
-                    "status": photo_doc["status"],
-                    "captured_at": photo_doc["captured_at"].isoformat() if isinstance(photo_doc["captured_at"], datetime) else photo_doc["captured_at"]
-                })
-                conn.execute("""
-                    INSERT INTO pending_operations (id, entity_type, entity_id, operation_type, payload, created_at, sync_status)
-                    VALUES (?, 'student', ?, 'PHOTO_PROCESSED', ?, ?, 'PENDING')
-                """, (
-                    operation_id,
-                    student_id,
-                    payload,
-                    now_str
-                ))
-        finally:
-            conn.close()
+        import time
+        import random
+        max_retries = 5
+        base_delay = 0.1
+        
+        for attempt in range(max_retries):
+            conn = cls.get_connection()
+            try:
+                with conn:
+                    # 1. Update previous photos to not current
+                    conn.execute("UPDATE student_photos SET is_current = 0 WHERE student_id = ?", (student_id,))
+                    
+                    # 2. Insert new photo doc
+                    photo_id = photo_doc.get("id") or str(uuid.uuid4())
+                    conn.execute("""
+                        INSERT INTO student_photos (id, student_id, original_filename, final_filename, relative_path, storage_type, version, status, captured_at, is_current)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    """, (
+                        photo_id,
+                        student_id,
+                        photo_doc["original_filename"],
+                        photo_doc["final_filename"],
+                        photo_doc["relative_path"],
+                        photo_doc["storage_type"],
+                        photo_doc["version"],
+                        photo_doc["status"],
+                        photo_doc["captured_at"].isoformat() if isinstance(photo_doc["captured_at"], datetime) else photo_doc["captured_at"]
+                    ))
+                    
+                    # 3. Update student state
+                    now_str = datetime.now(timezone.utc).isoformat()
+                    conn.execute("""
+                        UPDATE students 
+                        SET photo_status = 'captured', photo_filename = ?, photo_path = ?, updated_at = ?, local_updated_at = ?
+                        WHERE id = ?
+                    """, (
+                        photo_doc["final_filename"],
+                        photo_doc["relative_path"],
+                        now_str,
+                        now_str,
+                        student_id
+                    ))
+                    
+                    # 4. Insert pending operation
+                    payload = json.dumps({
+                        "photo_id": photo_id,
+                        "original_filename": photo_doc["original_filename"],
+                        "final_filename": photo_doc["final_filename"],
+                        "relative_path": photo_doc["relative_path"],
+                        "storage_type": photo_doc["storage_type"],
+                        "version": photo_doc["version"],
+                        "status": photo_doc["status"],
+                        "captured_at": photo_doc["captured_at"].isoformat() if isinstance(photo_doc["captured_at"], datetime) else photo_doc["captured_at"]
+                    })
+                    conn.execute("""
+                        INSERT INTO pending_operations (id, entity_type, entity_id, operation_type, payload, created_at, sync_status)
+                        VALUES (?, 'student', ?, 'PHOTO_PROCESSED', ?, ?, 'PENDING')
+                    """, (
+                        operation_id,
+                        student_id,
+                        payload,
+                        now_str
+                    ))
+                return  # Success
+            except sqlite3.OperationalError as e:
+                if "database is locked" in str(e).lower() and attempt < max_retries - 1:
+                    sleep_time = (base_delay * (2 ** attempt)) + (random.uniform(0, 0.1))
+                    logger.warning(f"Database is locked, retrying assign_photo in {sleep_time:.2f}s (attempt {attempt+1}/{max_retries})")
+                    time.sleep(sleep_time)
+                else:
+                    raise
+            finally:
+                conn.close()
 
     @classmethod
     def trigger_retake(cls, student_id: str, operation_id: str):

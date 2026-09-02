@@ -448,3 +448,124 @@ async def create_school_hm_user(school_id: str, user = Depends(RoleChecker(["blo
             {"$set": {"hm.user_id": hm_user_id}}
         )
     return RedirectResponse(url="/admin/schools/directory", status_code=303)
+
+@router.get("/projects/{project_id}/students", response_class=HTMLResponse)
+async def admin_student_list(
+    request: Request,
+    project_id: str,
+    page: int = 1,
+    limit: int = 100,
+    search: Optional[str] = None,
+    standard: Optional[str] = None,
+    division: Optional[str] = None,
+    photo_status: Optional[str] = None,
+    user = Depends(RoleChecker(["bloom_admin"]))
+):
+    project = ProjectService.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    db = get_db()
+    school_id = str(project["school_id"])
+    
+    # Build query
+    query: Dict[str, Any] = {"project_id": project_id, "school_id": school_id}
+    
+    if standard: query["standard"] = standard
+    if division: query["division"] = division
+    if photo_status: query["photo_status"] = photo_status
+        
+    if search:
+        search_clean = search.strip()
+        query["$or"] = [
+            {"name": {"$regex": f"^{search_clean}", "$options": "i"}},
+            {"gr": {"$regex": f"^{search_clean}", "$options": "i"}},
+            {"roll_number": {"$regex": f"^{search_clean}", "$options": "i"}}
+        ]
+        
+    total = db.students.count_documents(query)
+    skip = (page - 1) * limit
+    
+    projection = {"_id": 1, "gr": 1, "name": 1, "standard": 1, "division": 1, "roll_number": 1, "photo_status": 1}
+    students = list(db.students.find(query, projection).skip(skip).limit(limit))
+    for s in students: s["_id"] = str(s["_id"])
+        
+    distinct_standards = db.students.distinct("standard", {"project_id": project_id})
+    distinct_divisions = db.students.distinct("division", {"project_id": project_id})
+    distinct_divisions = [d for d in distinct_divisions if d]
+    
+    total_pages = max(1, (total + limit - 1) // limit)
+    is_htmx = request.headers.get("HX-Request") == "true"
+    template_name = "admin/student_table_partial.html" if is_htmx else "admin/students.html"
+    
+    return templates.TemplateResponse(request=request, name=template_name, context={
+        "user": user,
+        "project": project,
+        "students": students,
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "total_pages": total_pages,
+        "search": search or "",
+        "selected_standard": standard or "",
+        "selected_division": division or "",
+        "selected_photo_status": photo_status or "",
+        "distinct_standards": distinct_standards,
+        "distinct_divisions": distinct_divisions,
+        "msg": request.query_params.get("msg", ""),
+        "error": request.query_params.get("error", "")
+    })
+
+@router.post("/projects/{project_id}/students/add")
+async def add_student(
+    request: Request,
+    project_id: str,
+    gr: str = Form(...),
+    name: str = Form(...),
+    standard: Optional[str] = Form(""),
+    division: Optional[str] = Form(""),
+    roll_number: Optional[str] = Form(""),
+    user = Depends(RoleChecker(["bloom_admin"]))
+):
+    project = ProjectService.get_project(project_id)
+    if not project: raise HTTPException(status_code=404, detail="Project not found")
+    school_id = str(project["school_id"])
+        
+    from services.student_service import StudentService
+    try:
+        StudentService.create_student(
+            school_id=school_id, project_id=project_id, gr=gr, name=name,
+            standard=standard, division=division, roll_number=roll_number
+        )
+        return RedirectResponse(url=f"/admin/projects/{project_id}/students?msg=Student+added+successfully", status_code=303)
+    except ValueError as e:
+        return RedirectResponse(url=f"/admin/projects/{project_id}/students?error={str(e)}", status_code=303)
+
+@router.post("/projects/{project_id}/students/edit")
+async def edit_student(
+    request: Request,
+    project_id: str,
+    student_id: str = Form(...),
+    name: str = Form(...),
+    standard: Optional[str] = Form(""),
+    division: Optional[str] = Form(""),
+    roll_number: Optional[str] = Form(""),
+    user = Depends(RoleChecker(["bloom_admin"]))
+):
+    project = ProjectService.get_project(project_id)
+    if not project: raise HTTPException(status_code=404, detail="Project not found")
+    school_id = str(project["school_id"])
+        
+    from services.student_service import StudentService
+    student = StudentService.get_student(student_id)
+    if not student or student["school_id"] != school_id:
+        raise HTTPException(status_code=403, detail="Unauthorized to edit this student")
+        
+    try:
+        StudentService.update_student(
+            student_id=student_id, name=name, standard=standard,
+            division=division, roll_number=roll_number
+        )
+        return RedirectResponse(url=f"/admin/projects/{project_id}/students?msg=Student+updated+successfully", status_code=303)
+    except ValueError as e:
+        return RedirectResponse(url=f"/admin/projects/{project_id}/students?error={str(e)}", status_code=303)

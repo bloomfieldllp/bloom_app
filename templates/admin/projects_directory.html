@@ -94,8 +94,9 @@
                                     {{ (p.status or 'prospect').title() }}
                                 </span>
                             </td>
-                            <td>
+                            <td style="display: flex; gap: 0.5rem;">
                                 <a href="/admin/projects/{{ p._id }}/edit" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; min-height: auto; text-decoration: none;">Edit</a>
+                                <a href="/admin/projects/{{ p._id }}/students" class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; min-height: auto; text-decoration: none;">Students</a>
                             </td>
                         </tr>
                     {% endfor %}

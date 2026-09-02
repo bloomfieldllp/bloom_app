@@ -123,6 +123,13 @@
             </div>
             
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <a href="/operator/projects/{{ project._id }}/settings" class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    Settings
+                </a>
+                <span class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px; pointer-events: none; background: transparent; border: none; box-shadow: none;">
+                    Folder: <span id="storage-status-indicator" class="storage-indicator" style="display: inline-flex; align-items: center; gap: 4px;"><span class="storage-dot storage-dot-unavailable"></span><span>Disconnected</span></span>
+                </span>
                 <a href="/operator/projects/{{ project._id }}/export/excel" class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                     Excel
@@ -144,7 +151,45 @@
             </div>
         </div>
         
-        <!-- Search & Filter Card -->
+        {% if error %}
+            <div class="alert alert-error" style="margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 8px; font-weight: 600; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;">
+                {{ error }}
+            </div>
+        {% endif %}
+        
+        {% if msg %}
+            <div class="alert alert-success" style="margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 8px; font-weight: 600; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb;">
+                {{ msg }}
+            </div>
+        {% endif %}
+        
+        <!-- Active Student Panel -->
+            <div id="active-student-panel" class="active-student-card" style="display: none; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <span style="font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; color: var(--brand-primary); text-transform: uppercase;">Active Student Target</span>
+                        <h3 id="active-name" style="margin: 0.15rem 0 0 0; font-weight: 800; font-size: 1.3rem;"></h3>
+                        <p id="active-meta" style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-secondary);"></p>
+                    </div>
+                    <span id="active-status-badge" class="badge"></span>
+                </div>
+                
+                <div style="border-top: 1px solid var(--border-color); margin-top: 0.75rem; padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 0.8rem;">
+                        File: <code id="active-filename" style="font-weight: 600; color: var(--text-secondary);">—</code>
+                    </div>
+                    <div id="active-actions-wrapper">
+                        <!-- Retake button is shown here -->
+                    </div>
+                </div>
+            </div>
+            <div id="no-active-student-card" style="padding: 1.5rem; text-align: center; border: 2px dashed var(--border-color); border-radius: 12px; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary); margin-bottom: 0.5rem;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <div style="font-weight: 700; color: var(--text-primary);">No Student Active</div>
+                <div>Select a student from the directory to begin capturing.</div>
+            </div>
+            <br>
+            <!-- Search & Filter Card -->
         <div class="card" style="padding: 1rem; margin-bottom: 1rem; width: 100%; min-width: 0; position: relative;">
             <div style="display: flex; gap: 0.75rem; align-items: center; width: 100%;">
                 <div style="flex: 1; position: relative;">
@@ -160,6 +205,10 @@
                     <button type="button" class="btn btn-secondary" onclick="toggleFilterDropdown()" style="display: inline-flex; align-items: center; gap: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; height: 38px;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                         <span>Filter</span>
+                    </button>
+                    <!-- Add student button -->
+                    <button type="button" class="btn-primary-dark" onclick="openAddStudentModal('/operator/projects/{{ project._id }}/students/add')" style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; height: 38px;">
+                        + Add Student
                     </button>
                     
                     <!-- Dropdown Options Panel -->
@@ -213,6 +262,7 @@
                             <th>Roll</th>
                             <th>Photo Filename</th>
                             <th>Status</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -237,6 +287,9 @@
                                         {% if s.photo_status == 'captured' %}Completed{% else %}{{ s.photo_status.replace('_', ' ').title() }}{% endif %}
                                     </span>
                                 </td>
+                                <td>
+                                    <button type="button" class="btn-secondary-light" onclick="event.stopPropagation(); openEditStudentModal('/operator/projects/{{ project._id }}/students/edit', {{ s|tojson|safe }})" style="padding: 4px 8px; font-size: 0.75rem;">Edit</button>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -248,61 +301,16 @@
     <!-- Right Panel: Viewfinder & Pen Drive Setup -->
     <div class="panel">
         <div class="card-workspace">
-            <!-- Storage Configuration -->
-            <div id="storage-config-panel" style="padding: 1.25rem; border-radius: 12px; background-color: var(--bg-primary); border: 1px solid var(--border-color);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                    <h4 style="margin: 0; font-weight: 700; font-size: 0.95rem;">PHOTO STORAGE SETTING</h4>
-                    <span id="storage-status-indicator" class="storage-indicator">
-                        <span class="storage-dot storage-dot-unavailable"></span>
-                        <span>Disconnected</span>
-                    </span>
-                </div>
-                
-                <form id="storage-config-form" onsubmit="saveStorageConfig(event)">
-                    <div class="form-group" style="margin-bottom: 0.5rem;">
-                        <label style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);">Incoming Folder (Watcher Path)</label>
-                        <input type="text" id="incoming-folder-input" class="form-control" style="font-size: 0.85rem;" placeholder="e.g. E:/SchoolPhotos/Incoming/" value="{{ project.incoming_folder or '' }}" required>
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0.75rem;">
-                        <label style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);">Final Storage Folder</label>
-                        <input type="text" id="final-storage-input" class="form-control" style="font-size: 0.85rem;" placeholder="e.g. E:/SchoolPhotos/" value="{{ project.final_storage_folder or '' }}" required>
-                    </div>
-                    <button type="submit" class="btn btn-secondary" style="width: 100%; font-size: 0.8rem; padding: 6px 12px;">Save Directory Config</button>
-                </form>
-            </div>
+            
             
             <!-- Dynamic State / Alert Display -->
             <div id="alert-console-wrapper">
                 <!-- Injected dynamically: Duplicates or Unassigned alerts -->
             </div>
             
-            <!-- Active Student Panel -->
-            <div id="active-student-panel" class="active-student-card" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
-                        <span style="font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; color: var(--brand-primary); text-transform: uppercase;">Active Student Target</span>
-                        <h3 id="active-name" style="margin: 0.15rem 0 0 0; font-weight: 800; font-size: 1.3rem;"></h3>
-                        <p id="active-meta" style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-secondary);"></p>
-                    </div>
-                    <span id="active-status-badge" class="badge"></span>
-                </div>
-                
-                <div style="border-top: 1px solid var(--border-color); margin-top: 0.75rem; padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="font-size: 0.8rem;">
-                        File: <code id="active-filename" style="font-weight: 600; color: var(--text-secondary);">—</code>
-                    </div>
-                    <div id="active-actions-wrapper">
-                        <!-- Retake button is shown here -->
-                    </div>
-                </div>
-            </div>
             
-            <div id="no-active-student-card" style="padding: 2.5rem; text-align: center; border: 2px dashed var(--border-color); border-radius: 12px; color: var(--text-secondary); font-size: 0.9rem;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary); margin-bottom: 0.5rem;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <div style="font-weight: 700; color: var(--text-primary);">No Student Active</div>
-                Select a student from the directory to begin monitoring photo directory.
-            </div>
             
+                        
             <!-- Live Progress Status Bar -->
             <div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
                 <div style="flex: 1;">
@@ -329,6 +337,9 @@
         </div>
     </div>
 </div>
+
+{% include "shared/student_form_modal.html" %}
+
 {% endblock %}
 
 {% block scripts %}

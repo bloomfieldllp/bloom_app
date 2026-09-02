@@ -66,21 +66,24 @@ class StudentImportService:
     def validate_and_parse_records(
         file_bytes: bytes, 
         filename: str, 
-        mapping: Dict[str, str],
-        project_id: str
+        mapping: Dict[str, str], 
+        project_id: str,
+        school_id: str = None
     ) -> Dict[str, Any]:
         """
         Parses all records from the file based on column mapping, and performs validations:
         - Check for required columns mapping (GR, Name, Standard)
         - Detect missing required fields per row
         - Detect duplicate GR numbers within the uploaded file
-        - Detect duplicate GR numbers compared to the database
+        Parses CSV/Excel file, applies column mapping, normalizes GRs,
+        and validates against existing records in the database.
         """
-        required_keys = ["gr", "name"]
-        for rk in required_keys:
-            if not mapping.get(rk):
-                raise ValueError(f"Required field mapping for '{rk.upper()}' is missing.")
-        
+        db = get_db()
+        if not school_id:
+            project = db.projects.find_one({"_id": ObjectId(project_id)})
+            if project:
+                school_id = str(project.get("school_id"))
+            
         ext = os.path.splitext(filename)[1].lower()
         if ext == '.csv':
             try:
@@ -92,27 +95,34 @@ class StudentImportService:
             engine = "openpyxl" if ext == ".xlsx" else None
             df = pd.read_excel(io.BytesIO(file_bytes), engine=engine)
         else:
-            raise ValueError("Unsupported file format.")
-
-        # Clean dataframe column names to match headers
-        df.columns = [str(c) for c in df.columns]
+            raise ValueError(f"Unsupported file format for {filename}. CSV/Excel only.")
+            
+        df.columns = [str(c).strip() for c in df.columns]
         
-        # Mappings
-        gr_col = mapping["gr"]
-        name_col = mapping["name"]
+        # Mapping
+        gr_col = mapping.get("gr")
+        name_col = mapping.get("name")
         std_col = mapping.get("standard")
         roll_col = mapping.get("roll_number")
         div_col = mapping.get("division")
         
+        if not gr_col or not name_col:
+            raise ValueError("GR Number and Name columns are required mapping fields.")
+            
+        if gr_col not in df.columns or name_col not in df.columns:
+            raise ValueError("Mapped columns not found in uploaded file.")
+            
         valid_records = []
         duplicate_gr_in_file = {}
         missing_name_count = 0
         missing_gr_count = 0
         missing_std_count = 0
         
-        db = get_db()
-        # Find existing GRs in DB for this project
-        existing_students = list(db.students.find({"project_id": project_id}, {"gr": 1}))
+        # Find existing GRs in DB for this school
+        if school_id:
+            existing_students = list(db.students.find({"school_id": school_id}, {"gr": 1}))
+        else:
+            existing_students = list(db.students.find({"project_id": project_id}, {"gr": 1}))
         existing_grs = {s["gr"] for s in existing_students}
         
         duplicate_gr_in_db = set()
@@ -229,12 +239,13 @@ class StudentImportService:
                 inserted_count = len(valid_records)
                 
         elif action == "update":
-            # For each record, if exists in project+gr, update fields, else insert
+            # For each record, if exists in school+gr, update fields, else insert
             for r in valid_records:
                 gr_val = r["gr"]
-                existing = db.students.find_one({"project_id": project_id, "gr": gr_val})
+                existing = db.students.find_one({"school_id": school_id, "gr": gr_val})
                 if existing:
                     # Update fields (except photo_status and created_at to avoid wiping operator progress)
+                    # Also update project_id if it changed
                     db.students.update_one(
                         {"_id": existing["_id"]},
                         {
@@ -244,6 +255,7 @@ class StudentImportService:
                                 "roll_number": r["roll_number"],
                                 "division": r["division"],
                                 "raw_data": r["raw_data"],
+                                "project_id": project_id,
                                 "updated_at": now
                             }
                         }
@@ -258,8 +270,8 @@ class StudentImportService:
                     inserted_count += 1
                     
         elif action == "add_only":
-            # Find existing GRs in DB
-            existing_students = list(db.students.find({"project_id": project_id}, {"gr": 1}))
+            # Find existing GRs in DB for this school
+            existing_students = list(db.students.find({"school_id": school_id}, {"gr": 1}))
             existing_grs = {s["gr"] for s in existing_students}
             
             records_to_insert = []

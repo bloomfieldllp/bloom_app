@@ -179,7 +179,12 @@ def init_db():
         
         database.projects.create_index([("school_id", 1), ("academic_year", 1)])
         
-        database.students.create_index([("project_id", 1), ("gr", 1)], unique=True)
+        try:
+            database.students.drop_index("project_id_1_gr_1")
+        except Exception:
+            pass
+            
+        database.students.create_index([("school_id", 1), ("gr", 1)], unique=True)
         database.students.create_index("school_id")
         database.students.create_index("name")
         database.students.create_index("gr")

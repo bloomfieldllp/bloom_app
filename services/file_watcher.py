@@ -206,6 +206,8 @@ class WatcherService:
                         continue
                         
                     filepath = os.path.join(incoming_folder, f)
+                    photo_log_id = f"PHOTO_{datetime.now(timezone.utc).timestamp()}_{f}"
+                    logger.info(f"[{photo_log_id}] PHOTO_EVENT_RECEIVED: {f}")
                     
                     # Check stability: wait 100ms and check size (offloaded to thread)
                     try:
@@ -225,10 +227,12 @@ class WatcherService:
                         continue # Incomplete write or file locked
                         
                     # File is stable
+                    logger.info(f"[{photo_log_id}] FILE_READY: {f}")
                     seen_incoming_files.add(f)
                     
                     # Process file
-                    await cls._process_file(project_id, f, filepath, final_storage_folder)
+                    logger.info(f"[{photo_log_id}] PROCESSING_STARTED: {f}")
+                    await cls._process_file(project_id, f, filepath, final_storage_folder, photo_log_id)
                     
             except asyncio.CancelledError:
                 break
@@ -238,7 +242,7 @@ class WatcherService:
             await asyncio.sleep(0.1)
             
     @classmethod
-    async def _process_file(cls, project_id: str, filename: str, filepath: str, final_storage_folder: str):
+    async def _process_file(cls, project_id: str, filename: str, filepath: str, final_storage_folder: str, photo_log_id: str = "MANUAL"):
         state = cls.get_state(project_id)
         db = get_db()
         
@@ -258,7 +262,7 @@ class WatcherService:
                 "filepath": filepath
             }
             state["version"] = state.get("version", 1) + 1
-            logger.info(f"Unassigned photo detected: {filename}")
+            logger.info(f"[{photo_log_id}] Unassigned photo detected: {filename}")
             return
             
         if settings.IS_LOCAL_OPERATOR:
@@ -270,6 +274,8 @@ class WatcherService:
         if not student:
             return
             
+        logger.info(f"[{photo_log_id}] STUDENT_IDENTIFIED: {student.get('name')}")
+        
         # Case: Active student exists -> check duplicates (offloaded to thread)
         if settings.IS_LOCAL_OPERATOR:
             from services.local_db import LocalDB
@@ -290,14 +296,14 @@ class WatcherService:
                 "student_name": student["name"]
             }
             state["version"] = state.get("version", 1) + 1
-            logger.info(f"Duplicate photo alert for active student {student['name']}: {filename}")
+            logger.info(f"[{photo_log_id}] Duplicate photo alert for active student {student['name']}: {filename}")
             return
             
         # Standard auto assignment
-        await cls.execute_assignment(project_id, active_student_id, filename, filepath, final_storage_folder)
+        await cls.execute_assignment(project_id, active_student_id, filename, filepath, final_storage_folder, photo_log_id)
         
     @classmethod
-    async def execute_assignment(cls, project_id: str, student_id: str, original_filename: str, filepath: str, final_storage_folder: str) -> bool:
+    async def execute_assignment(cls, project_id: str, student_id: str, original_filename: str, filepath: str, final_storage_folder: str, photo_log_id: str = "MANUAL") -> bool:
         db = get_db()
         state = cls.get_state(project_id)
         
@@ -354,30 +360,28 @@ class WatcherService:
         
         dest_path = os.path.join(dest_dir, final_filename)
         
-        def move_file():
-            try:
-                shutil.move(filepath, dest_path)
-            except Exception:
-                shutil.copy2(filepath, dest_path)
-                os.remove(filepath)
+        def safe_copy_file():
+            if os.path.exists(dest_path):
+                size1 = os.path.getsize(filepath)
+                size2 = os.path.getsize(dest_path)
+                if size1 == size2:
+                    with open(filepath, 'rb') as f1, open(dest_path, 'rb') as f2:
+                        if f1.read() == f2.read():
+                            return "identical"
+                return "conflict"
+            shutil.copy2(filepath, dest_path)
+            return "copied"
                 
         try:
-            await asyncio.to_thread(move_file)
+            status = await asyncio.to_thread(safe_copy_file)
+            if status == "conflict":
+                logger.error(f"[{photo_log_id}] PHOTO_CONFLICT: {dest_path} already exists and is different.")
+                return False
+            logger.info(f"[{photo_log_id}] EDITED_FILE_COPIED ({status}): {dest_path}")
         except Exception as e:
-            logger.error(f"Failed to move file to local storage directory: {e}")
+            logger.error(f"[{photo_log_id}] Failed to copy file to local storage directory: {e}")
             return False
             
-        # --- LOCAL SUCCESS POINT ---
-        # The image has been successfully moved and renamed on the local disk!
-        # Write to overrides and increment version immediately to respond to polling client in milliseconds.
-        state["student_overrides"][student_id] = {
-            "photo_status": "captured",
-            "photo_filename": final_filename
-        }
-        state["version"] = state.get("version", 1) + 1
-        state["student_versions"][student_id] = state["version"]
-        state["stats_cache"] = None # Invalidate stats cache
-        
         # Clear detected alert if matched
         if state["current_file_detected"] and state["current_file_detected"]["filename"] == original_filename:
             state["current_file_detected"] = None
@@ -396,10 +400,43 @@ class WatcherService:
             "is_current": True
         }
         
+        logger.info(f"[{photo_log_id}] STATUS_UPDATE_STARTED")
+        
         if settings.IS_LOCAL_OPERATOR:
             operation_id = str(uuid.uuid4())
-            await asyncio.to_thread(LocalDB.assign_photo, student_id, photo_doc, operation_id)
-            SyncService.trigger_sync()
+            try:
+                await asyncio.to_thread(LocalDB.assign_photo, student_id, photo_doc, operation_id)
+                logger.info(f"[{photo_log_id}] LOCAL_STATUS_UPDATE_SUCCESS")
+                
+                # Update UI state ONLY after DB success
+                state["student_overrides"][student_id] = {
+                    "photo_status": "captured",
+                    "photo_filename": final_filename
+                }
+                state["version"] = state.get("version", 1) + 1
+                state["student_versions"][student_id] = state["version"]
+                state["stats_cache"] = None
+                
+                # Delete incoming file
+                try:
+                    await asyncio.to_thread(os.remove, filepath)
+                    logger.info(f"[{photo_log_id}] INCOMING_FILE_DELETED: {filepath}")
+                except Exception as e:
+                    logger.warning(f"[{photo_log_id}] Failed to delete incoming file: {e}")
+            except Exception as dbe:
+                import traceback
+                logger.error(f"[{photo_log_id}] LOCAL_STATUS_UPDATE_FAILED: {traceback.format_exc()}")
+                # Allow it to raise so it doesn't fail silently
+                raise dbe
+                
+            logger.info(f"[{photo_log_id}] SYNC_STARTED")
+            try:
+                SyncService.trigger_sync()
+                logger.info(f"[{photo_log_id}] SYNC_SUCCESS")
+                logger.info(f"[{photo_log_id}] UI_REFRESH_REQUESTED")
+            except Exception as se:
+                import traceback
+                logger.error(f"[{photo_log_id}] SYNC_FAILED: {traceback.format_exc()}")
         else:
             async def run_db_update():
                 try:
@@ -417,13 +454,30 @@ class WatcherService:
                             }}
                         )
                     await asyncio.to_thread(db_ops)
-                    logger.info(f"Successfully synced photo assignment to MongoDB for student {student['name']}")
-                except Exception as dbe:
-                    logger.error(f"Failed to update MongoDB with photo assignment (pending cloud connection): {dbe}")
+                    logger.info(f"[{photo_log_id}] LOCAL_STATUS_UPDATE_SUCCESS (MongoDB)")
                     
-            asyncio.create_task(run_db_update())
+                    # Update UI state ONLY after DB success
+                    state["student_overrides"][student_id] = {
+                        "photo_status": "captured",
+                        "photo_filename": final_filename
+                    }
+                    state["version"] = state.get("version", 1) + 1
+                    state["student_versions"][student_id] = state["version"]
+                    state["stats_cache"] = None
+                    
+                    # Delete incoming file
+                    try:
+                        await asyncio.to_thread(os.remove, filepath)
+                        logger.info(f"[{photo_log_id}] INCOMING_FILE_DELETED: {filepath}")
+                    except Exception as e:
+                        logger.warning(f"[{photo_log_id}] Failed to delete incoming file: {e}")
+                except Exception as dbe:
+                    import traceback
+                    logger.error(f"[{photo_log_id}] LOCAL_STATUS_UPDATE_FAILED (MongoDB): {traceback.format_exc()}")
+                    
+            await run_db_update()
             
-        logger.info(f"Assigned photo {original_filename} locally to student {student['name']} -> {final_filename}")
+        logger.info(f"[{photo_log_id}] Assigned photo {original_filename} locally to student {student['name']} -> {final_filename}")
         return True
 
 

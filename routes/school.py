@@ -308,5 +308,70 @@ async def student_list(
         "selected_photo_status": photo_status or "",
         "distinct_standards": distinct_standards,
         "distinct_divisions": distinct_divisions,
-        "msg": request.query_params.get("msg", "")
+        "msg": request.query_params.get("msg", ""),
+        "error": request.query_params.get("error", "")
     })
+
+@router.post("/projects/{project_id}/students/add")
+async def add_student(
+    request: Request,
+    project_id: str,
+    gr: str = Form(...),
+    name: str = Form(...),
+    standard: Optional[str] = Form(""),
+    division: Optional[str] = Form(""),
+    roll_number: Optional[str] = Form(""),
+    user = Depends(RoleChecker(["school_admin"]))
+):
+    school_id = user["school_id"]
+    project = ProjectService.get_project(project_id, school_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    from services.student_service import StudentService
+    try:
+        StudentService.create_student(
+            school_id=school_id,
+            project_id=project_id,
+            gr=gr,
+            name=name,
+            standard=standard,
+            division=division,
+            roll_number=roll_number
+        )
+        return RedirectResponse(url=f"/school/projects/{project_id}/students?msg=Student+added+successfully", status_code=303)
+    except ValueError as e:
+        return RedirectResponse(url=f"/school/projects/{project_id}/students?error={str(e)}", status_code=303)
+
+@router.post("/projects/{project_id}/students/edit")
+async def edit_student(
+    request: Request,
+    project_id: str,
+    student_id: str = Form(...),
+    name: str = Form(...),
+    standard: Optional[str] = Form(""),
+    division: Optional[str] = Form(""),
+    roll_number: Optional[str] = Form(""),
+    user = Depends(RoleChecker(["school_admin"]))
+):
+    school_id = user["school_id"]
+    project = ProjectService.get_project(project_id, school_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    from services.student_service import StudentService
+    student = StudentService.get_student(student_id)
+    if not student or student["school_id"] != school_id:
+        raise HTTPException(status_code=403, detail="Unauthorized to edit this student")
+        
+    try:
+        StudentService.update_student(
+            student_id=student_id,
+            name=name,
+            standard=standard,
+            division=division,
+            roll_number=roll_number
+        )
+        return RedirectResponse(url=f"/school/projects/{project_id}/students?msg=Student+updated+successfully", status_code=303)
+    except ValueError as e:
+        return RedirectResponse(url=f"/school/projects/{project_id}/students?error={str(e)}", status_code=303)

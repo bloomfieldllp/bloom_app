@@ -7,8 +7,8 @@
     <!-- Header -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #EBEAE4; padding-bottom: 1rem; margin-top: 1rem; flex-wrap: wrap; gap: 1rem;">
         <div>
-            <a href="/school" style="text-decoration: none; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                <span>←</span> Back to Dashboard
+            <a href="/admin/projects/directory" style="text-decoration: none; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                <span>←</span> Back to Projects
             </a>
             <h1 style="color: #111; font-weight: 800; font-size: 2rem; letter-spacing: -0.03em; margin: 0.25rem 0 0 0;">Students Directory</h1>
             <p style="color: var(--text-secondary); margin: 0.15rem 0 0 0; font-size: 0.9rem;">
@@ -28,7 +28,7 @@
                 <span style="font-size: 1.1rem; font-weight: 800; color: #2E7D32;">{{ project.photographed_students or 0 }}</span>
             </div>
             <div style="width: 1px; background: #EBEAE4;"></div>
-            <button onclick="openAddStudentModal('/school/projects/{{ project._id }}/students/add')" class="btn-primary-dark" style="font-size: 0.85rem; padding: 8px 16px;">+ Add Student</button>
+            <button onclick="openAddStudentModal('/admin/projects/{{ project._id }}/students/add')" class="btn-primary-dark" style="font-size: 0.85rem; padding: 8px 16px;">+ Add Student</button>
         </div>
     </div>
 
@@ -50,7 +50,7 @@
     <!-- Filter Form -->
     <div class="admin-card" style="padding: 1.25rem;">
         <form id="filter-form" 
-              hx-get="/school/projects/{{ project._id }}/students" 
+              hx-get="/admin/projects/{{ project._id }}/students" 
               hx-target="#student-table-container" 
               hx-trigger="change, keyup delay:300ms from:#search-input"
               class="student-filters-grid"
@@ -104,7 +104,7 @@
 
     <!-- Student Table Container -->
     <div id="student-table-container">
-        {% include "school/student_table_partial.html" %}
+        {% include "admin/student_table_partial.html" %}
     </div>
 </div>
 {% endblock %}
