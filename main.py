@@ -199,8 +199,7 @@ async def invalid_id_handler(request: Request, exc: InvalidId):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     error_id = str(uuid.uuid4())[:8]
-    logging.error(f"Unhandled Server Error [ID: {error_id}] at {request.url.path}: {str(exc)}
-{traceback.format_exc()}")
+    logging.error(f"Unhandled Server Error [ID: {error_id}] at {request.url.path}: {str(exc)}\n{traceback.format_exc()}")
     
     if request.headers.get("HX-Request") == "true":
         return HTMLResponse(f"<div class='alert alert-danger'>An unexpected error occurred (ID: {error_id}).</div>", status_code=500)
