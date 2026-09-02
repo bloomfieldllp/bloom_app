@@ -37,11 +37,7 @@ async def school_dashboard(request: Request, user = Depends(RoleChecker(["school
     })
 
 @router.get("/projects/{project_id}/import", response_class=HTMLResponse)
-async def import_page(
-    request: Request,
-    project_id: str,
-    user = Depends(RoleChecker(["school_admin"]))
-):
+async def import_upload(request: Request, project_id: str, user = Depends(RoleChecker(["school_admin"]))):
     school_id = user["school_id"]
     project = ProjectService.get_project(project_id, school_id)
     if not project:
@@ -52,8 +48,8 @@ async def import_page(
         "project": project
     })
 
-@router.post("/projects/{project_id}/preview", response_class=HTMLResponse)
-async def import_preview(
+@router.post("/projects/{project_id}/upload-excel", response_class=HTMLResponse)
+async def upload_excel(
     request: Request,
     project_id: str,
     files: List[UploadFile] = File(...),
@@ -63,8 +59,8 @@ async def import_preview(
     project = ProjectService.get_project(project_id, school_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-        
-    db = get_db()
+
+    # Read bytes and extract headers
     files_data = []
     filename = "combined_upload"
     for f in files:
@@ -74,34 +70,131 @@ async def import_preview(
             filename = f.filename
             
     try:
-        report = StudentImportService.intelligent_parse_records(files_data, school_id)
-    except ValueError as e:
+        headers, combined_bytes = StudentImportService.read_excel_headers(files_data)
+    except Exception as e:
         return templates.TemplateResponse(request=request, name="school/import_upload.html", context={
-            "user": user,
-            "project": project,
-            "error": str(e)
+            "user": user, "project": project, "error": str(e)
         })
-        
+
     import base64
-    import pickle
-    
+    db = get_db()
     temp_doc = {
-        "valid_records": report["valid_records"],
-        "new_custom_fields": report["new_custom_fields"],
+        "file_data": base64.b64encode(combined_bytes).decode('utf-8'),
         "created_at": datetime.now(timezone.utc)
     }
+    from bson import ObjectId
     temp_id = str(db.temp_files.insert_one(temp_doc).inserted_id)
-        
+
+    school = db.schools.find_one({"_id": ObjectId(school_id)})
+    custom_fields = school.get("field_definitions", [])
+
+    return templates.TemplateResponse(request=request, name="school/import_map.html", context={
+        "user": user,
+        "project": project,
+        "headers": headers,
+        "temp_file_path": temp_id,
+        "filename": filename,
+        "custom_fields": custom_fields
+    })
+
+@router.post("/projects/{project_id}/preview", response_class=HTMLResponse)
+async def import_preview(
+    request: Request,
+    project_id: str,
+    temp_file_path: str = Form(...),
+    filename: str = Form(...),
+    user = Depends(RoleChecker(["school_admin"]))
+):
+    school_id = user["school_id"]
+    project = ProjectService.get_project(project_id, school_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    form_data = await request.form()
+    mapping = {}
+    new_custom_fields = []
+    
+    # Validation for required fields
+    if not form_data.get("gr") or not form_data.get("name"):
+        return RedirectResponse(url=f"/school/projects/{project_id}/import?error=GR+and+Name+must+be+mapped", status_code=303)
+
+    for key, value in form_data.items():
+        if value and key not in ["temp_file_path", "filename"]:
+            if key.startswith("new_custom_field_name_"):
+                idx = key.split("_")[-1]
+                field_name = value
+                field_col = form_data.get(f"new_custom_field_col_{idx}")
+                hide_in_id = form_data.get(f"new_custom_field_hide_{idx}") == "on"
+                if field_name and field_col:
+                    field_key = field_name.lower().replace(" ", "_").replace("-", "_")
+                    new_custom_fields.append({
+                        "key": field_key,
+                        "display_name": field_name,
+                        "hide_in_id_card": hide_in_id,
+                        "type": "custom",
+                        "active": True
+                    })
+                    mapping[f"custom_{field_key}"] = field_col
+            elif key.startswith("existing_hide_"):
+                pass
+            elif not key.startswith("new_custom_field_"):
+                mapping[key] = value
+
+    db = get_db()
+    from bson import ObjectId
+    try:
+        temp_doc = db.temp_files.find_one({"_id": ObjectId(temp_file_path)})
+    except Exception:
+        temp_doc = None
+    if not temp_doc:
+        return RedirectResponse(url=f"/school/projects/{project_id}/import?error=Session+expired", status_code=303)
+
+    import base64
+    combined_bytes = base64.b64decode(temp_doc["file_data"])
+
+    if new_custom_fields:
+        db.schools.update_one(
+            {"_id": ObjectId(school_id)},
+            {"$push": {"field_definitions": {"$each": new_custom_fields}}}
+        )
+
+    existing_updates = {}
+    for key, value in form_data.items():
+        if key.startswith("existing_hide_"):
+            field_key = key.replace("existing_hide_", "")
+            existing_updates[field_key] = True
+
+    # Get school and sync hide_in_id_card
+    school = db.schools.find_one({"_id": ObjectId(school_id)})
+    current_defs = school.get("field_definitions", [])
+    changed = False
+    for fd in current_defs:
+        is_hidden = existing_updates.get(fd["key"], False)
+        if fd.get("hide_in_id_card") != is_hidden:
+            fd["hide_in_id_card"] = is_hidden
+            changed = True
+    if changed:
+        db.schools.update_one({"_id": ObjectId(school_id)}, {"$set": {"field_definitions": current_defs}})
+
+    try:
+        report = StudentImportService.parse_mapped_records(combined_bytes, mapping, school_id)
+    except Exception as e:
+        return RedirectResponse(url=f"/school/projects/{project_id}/import?error={str(e)}", status_code=303)
+
+    db.temp_files.update_one(
+        {"_id": ObjectId(temp_file_path)},
+        {"$set": {"valid_records": report["valid_records"]}}
+    )
+
     return templates.TemplateResponse(request=request, name="school/import_preview.html", context={
         "user": user,
         "project": project,
         "report": report,
-        "temp_file_path": temp_id,
+        "temp_file_path": temp_file_path,
         "filename": filename,
-        "existing_count": ProjectService.get_project_stats(project_id)["total_students"]
+        "existing_count": ProjectService.get_project_stats(project_id)["total_students"],
+        "mapping": mapping
     })
-
-
 
 @router.post("/projects/{project_id}/execute-import")
 async def execute_import(
@@ -128,15 +221,13 @@ async def execute_import(
         return RedirectResponse(url=f"/school/projects/{project_id}/import?error=Session+expired", status_code=303)
         
     valid_records = temp_doc.get("valid_records", [])
-    new_custom_fields = temp_doc.get("new_custom_fields", {})
     
     try:
-        result = StudentImportService.intelligent_execute_import(
+        result = StudentImportService.manual_execute_import(
             school_id=school_id,
             project_id=project_id,
             valid_records=valid_records,
-            action=import_action,
-            new_custom_fields=new_custom_fields
+            action=import_action
         )
     except Exception as e:
         import traceback
@@ -148,7 +239,6 @@ async def execute_import(
             status_code=303
         )
     
-    # Clean up temporary database record
     try:
         db.temp_files.delete_one({"_id": ObjectId(temp_file_path)})
     except Exception:
@@ -326,8 +416,8 @@ async def get_school_fields(request: Request, school_id: str, user = Depends(Rol
     try:
         from bson import ObjectId
         school = db.schools.find_one({"_id": ObjectId(school_id)})
-        if school and "custom_fields" in school:
-            return school["custom_fields"]
+        if school and "field_definitions" in school:
+            return school["field_definitions"]
     except Exception:
         pass
         
@@ -336,7 +426,7 @@ async def get_school_fields(request: Request, school_id: str, user = Depends(Rol
         try:
             from services.local_db import LocalDB
             conn = LocalDB.get_connection()
-            row = conn.execute("SELECT custom_fields FROM schools WHERE id = ?", (school_id,)).fetchone()
+            row = conn.execute("SELECT field_definitions FROM schools WHERE id = ?", (school_id,)).fetchone()
             if row and row[0]:
                 import json
                 return json.loads(row[0])

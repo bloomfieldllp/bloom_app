@@ -1,547 +1,106 @@
-import os
 import io
-import csv
 import pandas as pd
-from datetime import datetime, timezone
-from typing import Dict, Any, List, Tuple, Optional
-from bson import ObjectId
+from typing import List, Dict, Any, Tuple
 from database import get_db
 
 class StudentImportService:
     @staticmethod
-    def parse_file_preview(file_bytes: bytes, filename: str) -> Dict[str, Any]:
-        """
-        Parses the uploaded file to extract headers and the first 5 preview rows.
-        """
-        ext = os.path.splitext(filename)[1].lower()
-        if ext == '.csv':
-            # Try to detect encoding or default to utf-8 with fallback to latin-1
-            try:
-                content = file_bytes.decode('utf-8')
-            except UnicodeDecodeError:
-                content = file_bytes.decode('latin-1')
+    def read_excel_headers(files_data: List[Tuple[bytes, str]]) -> Tuple[List[str], bytes]:
+        if not files_data:
+            raise ValueError("No file provided.")
+        content, filename = files_data[0]
+        try:
+            df = pd.read_excel(io.BytesIO(content), nrows=10)
+        except Exception:
+            raise ValueError("Failed to read Excel file. Please ensure it is a valid .xlsx or .xls file.")
             
-            # Read sample lines
-            f = io.StringIO(content)
-            reader = csv.reader(f)
-            headers = next(reader, [])
-            rows = []
-            for i, row in enumerate(reader):
-                if i >= 5:
-                    break
-                # pad or slice row to match headers length
-                if len(row) < len(headers):
-                    row += [""] * (len(headers) - len(row))
-                else:
-                    row = row[:len(headers)]
-                rows.append(row)
-            
-            # Count total rows
-            f.seek(0)
-            next(reader, []) # skip header
-            total_rows = sum(1 for _ in reader)
-            
-        elif ext in ['.xlsx', '.xls']:
-            f_io = io.BytesIO(file_bytes)
-            # engine openpyxl handles xlsx, xlrd handles xls
-            engine = "openpyxl" if ext == ".xlsx" else None
-            df = pd.read_excel(f_io, engine=engine)
-            headers = [str(c) for c in df.columns]
-            rows_raw = df.head(5).values.tolist()
-            rows = []
-            for r in rows_raw:
-                rows.append([str(val) if not pd.isna(val) else "" for val in r])
-            total_rows = len(df)
-        else:
-            raise ValueError("Unsupported file format. Please upload CSV or Excel (.xlsx, .xls) files.")
-            
-        return {
-            "filename": filename,
-            "headers": headers,
-            "preview_rows": rows,
-            "total_rows": total_rows
-        }
+        # Clean headers
+        headers = []
+        for col in df.columns:
+            if not str(col).startswith("Unnamed"):
+                headers.append(str(col).strip())
+        return headers, content
 
     @staticmethod
-    def validate_and_parse_records(
-        file_bytes: bytes, 
-        filename: str, 
-        mapping: Dict[str, str], 
-        project_id: str,
-        school_id: str = None
-    ) -> Dict[str, Any]:
-        """
-        Parses all records from the file based on column mapping, and performs validations:
-        - Check for required columns mapping (GR, Name, Standard)
-        - Detect missing required fields per row
-        - Detect duplicate GR numbers within the uploaded file
-        Parses CSV/Excel file, applies column mapping, normalizes GRs,
-        and validates against existing records in the database.
-        """
+    def parse_mapped_records(file_bytes: bytes, mapping: Dict[str, str], school_id: str) -> Dict[str, Any]:
+        try:
+            df = pd.read_excel(io.BytesIO(file_bytes), dtype=str)
+        except Exception:
+            raise ValueError("Failed to parse Excel data.")
+            
+        # Drop rows where all mapped columns are NaN
+        mapped_cols = [col for col in mapping.values() if col in df.columns]
+        df.dropna(subset=mapped_cols, how='all', inplace=True)
+        
         db = get_db()
-        if not school_id:
-            project = db.projects.find_one({"_id": ObjectId(project_id)})
-            if project:
-                school_id = str(project.get("school_id"))
-            
-        ext = os.path.splitext(filename)[1].lower()
-        if ext == '.csv':
-            try:
-                content = file_bytes.decode('utf-8')
-            except UnicodeDecodeError:
-                content = file_bytes.decode('latin-1')
-            df = pd.read_csv(io.StringIO(content))
-        elif ext in ['.xlsx', '.xls']:
-            engine = "openpyxl" if ext == ".xlsx" else None
-            df = pd.read_excel(io.BytesIO(file_bytes), engine=engine)
-        else:
-            raise ValueError(f"Unsupported file format for {filename}. CSV/Excel only.")
-            
-        df.columns = [str(c).strip() for c in df.columns]
+        existing_students = list(db.students.find({"school_id": school_id}, {"gr": 1}))
+        existing_grs = {str(s["gr"]).strip().lower() for s in existing_students if s.get("gr")}
         
-        # Mapping
-        gr_col = mapping.get("gr")
-        name_col = mapping.get("name")
-        std_col = mapping.get("standard")
-        roll_col = mapping.get("roll_number")
-        div_col = mapping.get("division")
-        
-        if not gr_col or not name_col:
-            raise ValueError("GR Number and Name columns are required mapping fields.")
-            
-        if gr_col not in df.columns or name_col not in df.columns:
-            raise ValueError("Mapped columns not found in uploaded file.")
-            
         valid_records = []
         duplicate_gr_in_file = {}
-        missing_name_count = 0
+        duplicate_gr_in_db = {}
         missing_gr_count = 0
-        missing_std_count = 0
+        missing_name_count = 0
         
-        # Find existing GRs in DB for this school
-        if school_id:
-            existing_students = list(db.students.find({"school_id": school_id}, {"gr": 1}))
-        else:
-            existing_students = list(db.students.find({"project_id": project_id}, {"gr": 1}))
-        existing_grs = {s["gr"] for s in existing_students}
-        
-        duplicate_gr_in_db = set()
         seen_grs_in_file = {}
         
-        def clean_val(val) -> str:
-            if pd.isna(val) or val is None:
-                return ""
-            if isinstance(val, (int, float)) and not isinstance(val, bool):
-                if isinstance(val, float) and val.is_integer():
-                    return str(int(val))
-                elif isinstance(val, float):
-                    return str(int(val))
-                return str(int(val))
-            val_str = str(val).strip()
-            if val_str.endswith(".0"):
-                return val_str[:-2]
-            return val_str
-
         for idx, row in df.iterrows():
-            row_dict = row.to_dict()
+            record = {}
+            # Core fields
+            gr_col = mapping.get("gr")
+            name_col = mapping.get("name")
             
-            # Fetch target values using clean_val to strip .0 decimal suffixes
-            gr_val = clean_val(row_dict.get(gr_col))
-            name_val = clean_val(row_dict.get(name_col))
-            std_val = clean_val(row_dict.get(std_col)) if std_col else ""
-            roll_val = clean_val(row_dict.get(roll_col)) if roll_col else ""
-            div_val = clean_val(row_dict.get(div_col)) if div_col else ""
+            gr_val = str(row[gr_col]).strip() if gr_col and gr_col in df.columns and pd.notna(row[gr_col]) else ""
+            name_val = str(row[name_col]).strip() if name_col and name_col in df.columns and pd.notna(row[name_col]) else ""
             
-            # Row raw data should preserve original keys and clean up nan values
-            raw_data = {k: (v if not pd.isna(v) else "") for k, v in row_dict.items()}
-            
-            # Validations
-            has_error = False
             if not gr_val:
                 missing_gr_count += 1
-                has_error = True
+                continue
             if not name_val:
                 missing_name_count += 1
-                has_error = True
-                
-            if has_error:
                 continue
                 
-            # Check duplicate in file
-            if gr_val in seen_grs_in_file:
+            record["gr"] = gr_val
+            record["name"] = name_val
+            
+            # Other standard fields
+            for std_field in ["dob", "address", "contact", "class_name", "division", "gender", "roll_number"]:
+                col = mapping.get(std_field)
+                if col and col in df.columns and pd.notna(row[col]):
+                    record[std_field] = str(row[col]).strip()
+            
+            # Map standard aliases
+            if "class_name" in record:
+                record["standard"] = record["class_name"]
+            if "division" in record:
+                record["section"] = record["division"]
+                
+            # Custom fields
+            custom_fields = {}
+            for map_key, col in mapping.items():
+                if map_key.startswith("custom_") and col in df.columns and pd.notna(row[col]):
+                    field_key = map_key.replace("custom_", "", 1)
+                    custom_fields[field_key] = str(row[col]).strip()
+                    
+            if custom_fields:
+                record["custom_fields"] = custom_fields
+                
+            gr_lower = gr_val.lower()
+            if gr_lower in existing_grs:
+                if gr_val not in duplicate_gr_in_db:
+                    duplicate_gr_in_db[gr_val] = []
+                duplicate_gr_in_db[gr_val].append(record)
+            elif gr_lower in seen_grs_in_file:
                 if gr_val not in duplicate_gr_in_file:
-                    duplicate_gr_in_file[gr_val] = [seen_grs_in_file[gr_val]]
-                duplicate_gr_in_file[gr_val].append(idx + 1)
-                continue
-            
-            seen_grs_in_file[gr_val] = idx + 1
-            
-            # Check duplicate in DB
-            if gr_val in existing_grs:
-                duplicate_gr_in_db.add(gr_val)
-            
-            # Construct standard record
-            valid_records.append({
-                "gr": gr_val,
-                "name": name_val,
-                "standard": std_val,
-                "roll_number": roll_val,
-                "division": div_val,
-                "raw_data": raw_data,
-                "photo_status": "not_captured"
-            })
-            
-        return {
-            "total_rows": len(df),
-            "valid_records": valid_records,
-            "duplicate_gr_in_file_count": len(duplicate_gr_in_file),
-            "duplicate_gr_in_file": duplicate_gr_in_file,
-            "duplicate_gr_in_db_count": len(duplicate_gr_in_db),
-            "duplicate_gr_in_db": list(duplicate_gr_in_db),
-            "missing_name_count": missing_name_count,
-            "missing_gr_count": missing_gr_count,
-            "missing_std_count": missing_std_count
-        }
-
-    @staticmethod
-    def execute_import(
-        school_id: str,
-        project_id: str,
-        valid_records: List[Dict[str, Any]],
-        action: str
-    ) -> Dict[str, int]:
-        """
-        Executes database import based on selected action:
-        - 'replace': Deletes all existing students in this project first, then imports.
-        - 'update': Inserts new, updates existing student records by matching GR.
-        - 'add_only': Only imports records whose GR does not already exist in the database.
-        """
-        db = get_db()
-        now = datetime.now(timezone.utc)
-        
-        inserted_count = 0
-        updated_count = 0
-        deleted_count = 0
-        
-        if action == "replace":
-            # Delete existing students ONLY in this project
-            del_result = db.students.delete_many({"project_id": project_id})
-            deleted_count = del_result.deleted_count
-            
-            for r in valid_records:
-                gr_val = r["gr"]
-                existing = db.students.find_one({"school_id": school_id, "gr": gr_val})
-                if existing:
-                    # Update fields and move to this project
-                    db.students.update_one(
-                        {"_id": existing["_id"]},
-                        {
-                            "$set": {
-                                "name": r["name"],
-                                "standard": r["standard"],
-                                "roll_number": r["roll_number"],
-                                "division": r["division"],
-                                "raw_data": r["raw_data"],
-                                "project_id": project_id,
-                                "updated_at": now
-                            }
-                        }
-                    )
-                    inserted_count += 1
-                else:
-                    r["school_id"] = school_id
-                    r["project_id"] = project_id
-                    r["created_at"] = now
-                    r["updated_at"] = now
-                    db.students.insert_one(r)
-                    inserted_count += 1
-                
-        elif action == "update":
-            # For each record, if exists in school+gr, update fields, else insert
-            for r in valid_records:
-                gr_val = r["gr"]
-                existing = db.students.find_one({"school_id": school_id, "gr": gr_val})
-                if existing:
-                    # Update fields (except photo_status and created_at to avoid wiping operator progress)
-                    # Also update project_id if it changed
-                    db.students.update_one(
-                        {"_id": existing["_id"]},
-                        {
-                            "$set": {
-                                "name": r["name"],
-                                "standard": r["standard"],
-                                "roll_number": r["roll_number"],
-                                "division": r["division"],
-                                "raw_data": r["raw_data"],
-                                "project_id": project_id,
-                                "updated_at": now
-                            }
-                        }
-                    )
-                    updated_count += 1
-                else:
-                    r["school_id"] = school_id
-                    r["project_id"] = project_id
-                    r["created_at"] = now
-                    r["updated_at"] = now
-                    db.students.insert_one(r)
-                    inserted_count += 1
-                    
-        elif action == "add_only":
-            # Find existing GRs in DB for this school
-            existing_students = list(db.students.find({"school_id": school_id}, {"gr": 1}))
-            existing_grs = {s["gr"] for s in existing_students}
-            
-            records_to_insert = []
-            for r in valid_records:
-                if r["gr"] not in existing_grs:
-                    r["school_id"] = school_id
-                    r["project_id"] = project_id
-                    r["created_at"] = now
-                    r["updated_at"] = now
-                    records_to_insert.append(r)
-                    
-            if records_to_insert:
-                db.students.insert_many(records_to_insert)
-                inserted_count = len(records_to_insert)
-                
-        else:
-            raise ValueError(f"Unknown import action: {action}")
-            
-        return {
-            "inserted": inserted_count,
-            "updated": updated_count,
-            "deleted": deleted_count
-        }
-
-    @staticmethod
-    def combine_multiple_files(files: List[Tuple[bytes, str]]) -> Tuple[bytes, List[str], List[List[str]], int]:
-        """
-        Combines multiple CSV or Excel files into a single CSV string representation.
-        Returns a tuple of: (combined_csv_bytes, headers, preview_rows, total_rows)
-        """
-        dfs = []
-        for file_bytes, filename in files:
-            if not file_bytes:
-                continue
-            ext = os.path.splitext(filename)[1].lower()
-            if ext == '.csv':
-                try:
-                    content = file_bytes.decode('utf-8')
-                except UnicodeDecodeError:
-                    content = file_bytes.decode('latin-1')
-                df = pd.read_csv(io.StringIO(content))
-            elif ext in ['.xlsx', '.xls']:
-                engine = "openpyxl" if ext == ".xlsx" else None
-                df = pd.read_excel(io.BytesIO(file_bytes), engine=engine)
+                    duplicate_gr_in_file[gr_val] = [seen_grs_in_file[gr_lower]]
+                duplicate_gr_in_file[gr_val].append(record)
             else:
-                raise ValueError(f"Unsupported file format for {filename}. CSV/Excel only.")
-            
-            # Clean dataframe column names to string
-            df.columns = [str(c).strip() for c in df.columns]
-            dfs.append(df)
-            
-        if not dfs:
-            raise ValueError("No valid student data files uploaded.")
-            
-        # Concatenate and fill NaN
-        combined_df = pd.concat(dfs, ignore_index=True, sort=False).fillna("")
-        
-        # Write combined to CSV bytes
-        out_buf = io.StringIO()
-        combined_df.to_csv(out_buf, index=False)
-        csv_bytes = out_buf.getvalue().encode('utf-8')
-        
-        headers = [str(c) for c in combined_df.columns]
-        rows_raw = combined_df.head(5).values.tolist()
-        preview_rows = []
-        for r in rows_raw:
-            preview_rows.append([str(val) for val in r])
-            
-        return csv_bytes, headers, preview_rows, len(combined_df)
-
-    @staticmethod
-    def intelligent_parse_records(files: List[Tuple[bytes, str]], school_id: str) -> Dict[str, Any]:
-        import re
-        from services.student_service import StudentService
-
-        import io
-        import pandas as pd
-        
-        # Load canonical definitions
-        STANDARD_ALIASES = {
-            "gr": ["gr", "g.r.", "g r", "general register", "general register no", "gr no", "g.r. no", "gr. no.", "gr. no"],
-            "name": ["name", "student name", "student's name", "full name", "first name"],
-            "date_of_birth": ["dob", "date of birth", "birth date", "d.o.b.", "d.o.b", "birthdate"],
-            "address": ["address", "student address", "residential address"],
-            "roll_number": ["student number", "student no", "roll no", "roll number", "sr no", "serial no", "roll"],
-            "standard": ["standard", "std", "class", "grade"],
-            "division": ["division", "div", "section", "sec"]
-        }
-        
-        def normalize_header(header_str: str) -> str:
-            return str(header_str).strip().lower()
-            
-        def get_canonical(header: str) -> str:
-            h = normalize_header(header)
-            for canon, aliases in STANDARD_ALIASES.items():
-                if h in aliases:
-                    return canon
-            return None
-            
-        # Fetch existing custom fields for school
-        db = get_db()
-        try:
-            from bson import ObjectId
-            school = db.schools.find_one({"_id": ObjectId(school_id)})
-            school_custom_fields = school.get("custom_fields", []) if school else []
-            existing_custom_keys = {f["key"] for f in school_custom_fields}
-        except Exception:
-            school_custom_fields = []
-            existing_custom_keys = set()
-            
-        # We will collect valid records
-        valid_records = []
-        blocks_detected = 0
-        new_custom_fields_discovered = {}
-        detected_standard_fields = set()
-        
-        duplicate_gr_in_file = {}
-        seen_grs_in_file = {}
-        missing_gr_count = 0
-        missing_name_count = 0
-        
-        for file_bytes, filename in files:
-            ext = filename.split(".")[-1].lower()
-            if ext == 'csv':
-                try:
-                    df = pd.read_csv(io.BytesIO(file_bytes), header=None, dtype=str)
-                except Exception:
-                    df = pd.read_csv(io.BytesIO(file_bytes), header=None, dtype=str, encoding='latin-1')
-            elif ext in ['xlsx', 'xls']:
-                engine = "openpyxl" if ext == "xlsx" else None
-                df = pd.read_excel(io.BytesIO(file_bytes), header=None, engine=engine, dtype=str)
-            else:
-                continue
+                seen_grs_in_file[gr_lower] = record
+                valid_records.append(record)
                 
-            df = df.fillna("")
-            
-            # Find blocks
-            current_mapping = None
-            current_block_start = -1
-            
-            for idx, row in df.iterrows():
-                row_vals = [str(x).strip() for x in row.values]
-                
-                # Score row as header
-                matches = {}
-                score = 0
-                for col_idx, val in enumerate(row_vals):
-                    if not val: continue
-                    canon = get_canonical(val)
-                    if canon:
-                        matches[col_idx] = canon
-                        score += 1
-                        
-                if score >= 2 and ("gr" in matches.values() or "name" in matches.values()):
-                    # It's a header row!
-                    blocks_detected += 1
-                    current_mapping = {}
-                    
-                    for col_idx, val in enumerate(row_vals):
-                        if not val: continue
-                        canon = get_canonical(val)
-                        if canon:
-                            current_mapping[col_idx] = canon
-                            detected_standard_fields.add(canon)
-                        else:
-                            # It's a custom field candidate!
-                            custom_key = re.sub(r'[^a-z0-9_]', '_', val.lower()).strip('_')
-                            custom_key = re.sub(r'_+', '_', custom_key)
-                            if not custom_key: continue
-                            
-                            current_mapping[col_idx] = f"custom_{custom_key}"
-                            if custom_key not in existing_custom_keys:
-                                new_custom_fields_discovered[custom_key] = val
-                    continue
-                    
-                # If we have an active mapping, process as data row
-                if current_mapping:
-                    # Ignore section breaks (rows with no GR or Name where they are mapped)
-                    gr_idx = -1
-                    name_idx = -1
-                    for c_idx, m_val in current_mapping.items():
-                        if m_val == "gr": gr_idx = c_idx
-                        if m_val == "name": name_idx = c_idx
-                        
-                    gr_val = row_vals[gr_idx] if gr_idx != -1 and gr_idx < len(row_vals) else ""
-                    name_val = row_vals[name_idx] if name_idx != -1 and name_idx < len(row_vals) else ""
-                    
-                    if not gr_val and not name_val:
-                        continue # Section break or blank row
-                        
-                    if not gr_val:
-                        missing_gr_count += 1
-                        continue
-                    if not name_val:
-                        missing_name_count += 1
-                        continue
-                        
-                    # Normalize GR
-                    gr_val = StudentService.normalize_gr(gr_val)
-                    if not gr_val:
-                        missing_gr_count += 1
-                        continue
-                        
-                    # Build record
-                    record = {
-                        "gr": gr_val,
-                        "name": name_val,
-                        "standard": "",
-                        "division": "",
-                        "roll_number": "",
-                        "date_of_birth": "",
-                        "address": "",
-                        "custom_fields": {},
-                        "raw_data": {}
-                    }
-                    
-                    for col_idx, field_key in current_mapping.items():
-                        if col_idx >= len(row_vals): continue
-                        val = row_vals[col_idx]
-                        if field_key.startswith("custom_"):
-                            k = field_key.replace("custom_", "")
-                            record["custom_fields"][k] = val
-                            record["raw_data"][val] = val # for legacy if needed
-                        else:
-                            record[field_key] = val
-                            record["raw_data"][field_key] = val
-                            
-                    # Track duplicates in file
-                    if gr_val in seen_grs_in_file:
-                        if gr_val not in duplicate_gr_in_file:
-                            duplicate_gr_in_file[gr_val] = [seen_grs_in_file[gr_val]]
-                        duplicate_gr_in_file[gr_val].append(idx + 1)
-                        continue
-                        
-                    seen_grs_in_file[gr_val] = idx + 1
-                    valid_records.append(record)
-                    
-        # Find DB duplicates
-        existing_grs = set()
-        if valid_records:
-            grs_to_check = [r["gr"] for r in valid_records]
-            existing_db = list(db.students.find({"school_id": school_id, "gr": {"$in": grs_to_check}}, {"gr": 1}))
-            existing_grs = {s["gr"] for s in existing_db}
-            
-        duplicate_gr_in_db = list(existing_grs)
-        
         return {
             "total_rows": len(valid_records) + missing_gr_count + missing_name_count + sum(len(v) for v in duplicate_gr_in_file.values()),
             "valid_records": valid_records,
-            "blocks_detected": blocks_detected,
-            "detected_standard_fields": list(detected_standard_fields),
-            "new_custom_fields": new_custom_fields_discovered,
             "duplicate_gr_in_file_count": len(duplicate_gr_in_file),
             "duplicate_gr_in_file": duplicate_gr_in_file,
             "duplicate_gr_in_db_count": len(duplicate_gr_in_db),
@@ -551,138 +110,55 @@ class StudentImportService:
             "missing_std_count": 0
         }
 
-
     @staticmethod
-    def intelligent_execute_import(
-        school_id: str,
-        project_id: str,
-        valid_records: List[Dict[str, Any]],
-        action: str,
-        new_custom_fields: Dict[str, str] = None
-    ) -> Dict[str, int]:
+    def manual_execute_import(school_id: str, project_id: str, valid_records: List[Dict[str, Any]], action: str) -> Dict[str, int]:
+        from datetime import datetime, timezone
+        from bson import ObjectId
         db = get_db()
         now = datetime.now(timezone.utc)
         
-        # 1. Update school schema if new fields
-        if new_custom_fields:
-            try:
-                from bson import ObjectId
-                school = db.schools.find_one({"_id": ObjectId(school_id)})
-                if school:
-                    existing = school.get("custom_fields", [])
-                    existing_keys = {f["key"] for f in existing}
-                    
-                    for k, label in new_custom_fields.items():
-                        if k not in existing_keys:
-                            existing.append({
-                                "key": k,
-                                "label": label,
-                                "type": "text",
-                                "active": True,
-                                "order": len(existing) + 1
-                            })
-                    
-                    db.schools.update_one(
-                        {"_id": ObjectId(school_id)},
-                        {"$set": {"custom_fields": existing}}
-                    )
-            except Exception:
-                pass
-                
-        inserted_count = 0
-        updated_count = 0
-        deleted_count = 0
+        inserted = 0
+        updated = 0
+        
+        # Action semantics:
+        # replace: Delete all existing students for this project, then insert new.
+        # append: Insert all valid records.
+        # update: If GR exists, update. If not, insert.
         
         if action == "replace":
-            del_result = db.students.delete_many({"project_id": project_id})
-            deleted_count = del_result.deleted_count
+            db.students.delete_many({"project_id": project_id})
             
-            for r in valid_records:
-                gr_val = r["gr"]
-                existing = db.students.find_one({"school_id": school_id, "gr": gr_val})
+        for rec in valid_records:
+            gr = rec["gr"]
+            
+            doc = {
+                "name": rec["name"],
+                "gr": gr,
+                "project_id": project_id,
+                "school_id": school_id,
+                "updated_at": now
+            }
+            
+            for f in ["dob", "address", "contact", "standard", "section", "roll_number", "gender", "custom_fields"]:
+                if f in rec:
+                    doc[f] = rec[f]
+                    
+            if action == "append" or action == "replace":
+                doc["_id"] = ObjectId()
+                doc["photo_status"] = "not_captured"
+                db.students.insert_one(doc)
+                inserted += 1
+            elif action == "update":
+                # Find existing by GR and school_id
+                existing = db.students.find_one({"gr": gr, "school_id": school_id})
                 if existing:
-                    db.students.update_one(
-                        {"_id": existing["_id"]},
-                        {
-                            "$set": {
-                                "name": r["name"],
-                                "standard": r["standard"],
-                                "roll_number": r["roll_number"],
-                                "division": r["division"],
-                                "date_of_birth": r.get("date_of_birth", ""),
-                                "address": r.get("address", ""),
-                                "custom_fields": r.get("custom_fields", {}),
-                                "raw_data": r.get("raw_data", {}),
-                                "project_id": project_id,
-                                "updated_at": now
-                            }
-                        }
-                    )
-                    inserted_count += 1
+                    # Update
+                    db.students.update_one({"_id": existing["_id"]}, {"$set": doc})
+                    updated += 1
                 else:
-                    r["school_id"] = school_id
-                    r["project_id"] = project_id
-                    r["created_at"] = now
-                    r["updated_at"] = now
-                    r["photo_status"] = "not_captured"
-                    db.students.insert_one(r)
-                    inserted_count += 1
+                    doc["_id"] = ObjectId()
+                    doc["photo_status"] = "not_captured"
+                    db.students.insert_one(doc)
+                    inserted += 1
                     
-        elif action == "update":
-            for r in valid_records:
-                gr_val = r["gr"]
-                existing = db.students.find_one({"school_id": school_id, "gr": gr_val})
-                if existing:
-                    db.students.update_one(
-                        {"_id": existing["_id"]},
-                        {
-                            "$set": {
-                                "name": r["name"],
-                                "standard": r["standard"],
-                                "roll_number": r["roll_number"],
-                                "division": r["division"],
-                                "date_of_birth": r.get("date_of_birth", ""),
-                                "address": r.get("address", ""),
-                                "custom_fields": r.get("custom_fields", {}),
-                                "raw_data": r.get("raw_data", {}),
-                                "project_id": project_id,
-                                "updated_at": now
-                            }
-                        }
-                    )
-                    updated_count += 1
-                else:
-                    r["school_id"] = school_id
-                    r["project_id"] = project_id
-                    r["created_at"] = now
-                    r["updated_at"] = now
-                    r["photo_status"] = "not_captured"
-                    db.students.insert_one(r)
-                    inserted_count += 1
-                    
-        elif action == "add_only":
-            existing_students = list(db.students.find({"school_id": school_id}, {"gr": 1}))
-            existing_grs = {s["gr"] for s in existing_students}
-            
-            records_to_insert = []
-            for r in valid_records:
-                if r["gr"] not in existing_grs:
-                    r["school_id"] = school_id
-                    r["project_id"] = project_id
-                    r["created_at"] = now
-                    r["updated_at"] = now
-                    r["photo_status"] = "not_captured"
-                    records_to_insert.append(r)
-                    
-            if records_to_insert:
-                db.students.insert_many(records_to_insert)
-                inserted_count = len(records_to_insert)
-                
-        else:
-            raise ValueError(f"Unknown import action: {action}")
-            
-        return {
-            "inserted": inserted_count,
-            "updated": updated_count,
-            "deleted": deleted_count
-        }
+        return {"inserted": inserted, "updated": updated}

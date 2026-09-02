@@ -238,23 +238,29 @@ class LocalDB:
     def save_school(cls, school: Dict[str, Any]):
         conn = cls.get_connection()
         try:
+            field_defs_str = None
+            if "field_definitions" in school:
+                field_defs_str = json.dumps(school["field_definitions"])
+                
             with conn:
                 conn.execute("""
-                    INSERT INTO schools (id, name, school_code, location_link, status, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO schools (id, name, school_code, location_link, status, updated_at, field_definitions)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         name=excluded.name,
                         school_code=excluded.school_code,
                         location_link=excluded.location_link,
                         status=excluded.status,
-                        updated_at=excluded.updated_at
+                        updated_at=excluded.updated_at,
+                        field_definitions=excluded.field_definitions
                 """, (
                     str(school.get("_id") or school.get("id")),
                     school.get("name", ""),
                     school.get("school_code", ""),
                     school.get("location_link"),
                     school.get("status", "active"),
-                    school.get("updated_at", datetime.now(timezone.utc).isoformat())
+                    school.get("updated_at", datetime.now(timezone.utc).isoformat()),
+                    field_defs_str
                 ))
         finally:
             conn.close()
@@ -264,7 +270,18 @@ class LocalDB:
         conn = cls.get_connection()
         try:
             row = conn.execute("SELECT * FROM schools WHERE id = ?", (school_id,)).fetchone()
-            return dict(row) if row else None
+            if row:
+                s = dict(row)
+                if s.get("field_definitions"):
+                    try:
+                        import json
+                        s["field_definitions"] = json.loads(s["field_definitions"])
+                    except Exception:
+                        s["field_definitions"] = []
+                else:
+                    s["field_definitions"] = []
+                return s
+            return None
         finally:
             conn.close()
 

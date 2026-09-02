@@ -583,8 +583,8 @@ async def get_school_fields(request: Request, school_id: str, user = Depends(Rol
     try:
         from bson import ObjectId
         school = db.schools.find_one({"_id": ObjectId(school_id)})
-        if school and "custom_fields" in school:
-            return school["custom_fields"]
+        if school and "field_definitions" in school:
+            return school["field_definitions"]
     except Exception:
         pass
         
@@ -593,7 +593,7 @@ async def get_school_fields(request: Request, school_id: str, user = Depends(Rol
         try:
             from services.local_db import LocalDB
             conn = LocalDB.get_connection()
-            row = conn.execute("SELECT custom_fields FROM schools WHERE id = ?", (school_id,)).fetchone()
+            row = conn.execute("SELECT field_definitions FROM schools WHERE id = ?", (school_id,)).fetchone()
             if row and row[0]:
                 import json
                 return json.loads(row[0])
@@ -610,8 +610,8 @@ async def get_school_fields(request: Request, school_id: str, user = Depends(Rol
     try:
         from bson import ObjectId
         school = db.schools.find_one({"_id": ObjectId(school_id)})
-        if school and "custom_fields" in school:
-            return school["custom_fields"]
+        if school and "field_definitions" in school:
+            return school["field_definitions"]
     except Exception:
         pass
         
@@ -620,7 +620,7 @@ async def get_school_fields(request: Request, school_id: str, user = Depends(Rol
         try:
             from services.local_db import LocalDB
             conn = LocalDB.get_connection()
-            row = conn.execute("SELECT custom_fields FROM schools WHERE id = ?", (school_id,)).fetchone()
+            row = conn.execute("SELECT field_definitions FROM schools WHERE id = ?", (school_id,)).fetchone()
             if row and row[0]:
                 import json
                 return json.loads(row[0])
