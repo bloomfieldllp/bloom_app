@@ -1,11 +1,14 @@
-import re
-
 with open("services/student_import_service.py", "r") as f:
-    content = f.read()
+    lines = f.readlines()
 
-new_exec = """    @staticmethod
-    def manual_execute_import(school_id: str, project_id: str, valid_records: List[Dict[str, Any]], action: str) -> Dict[str, int]:
-        from datetime import datetime, timezone
+out = []
+in_func = False
+for line in lines:
+    if "def manual_execute_import(" in line:
+        in_func = True
+        out.append(line)
+        # Append our new logic
+        out.append("""        from datetime import datetime, timezone
         db = get_db()
         now = datetime.now(timezone.utc)
         
@@ -38,7 +41,7 @@ new_exec = """    @staticmethod
                     
                 if existing:
                     db.students.update_one({"_id": existing["_id"]}, {"$set": doc})
-                    inserted += 1 # Following old semantics
+                    inserted += 1 
                 else:
                     doc["school_id"] = school_id
                     doc["gr"] = gr
@@ -108,9 +111,20 @@ new_exec = """    @staticmethod
                     db.students.insert_one(doc)
                     inserted += 1
                     
-        return {"inserted": inserted, "updated": updated, "deleted": deleted}"""
-
-content = re.sub(r'    @staticmethod\n    def manual_execute_import.*?return {"inserted": inserted, "updated": updated, "deleted": deleted}', new_exec, content, flags=re.DOTALL)
+        return {"inserted": inserted, "updated": updated, "deleted": deleted}\n""")
+        continue
+        
+    if in_func:
+        if line.strip() == "" or line.startswith("        ") or line.startswith("    @staticmethod"):
+            # If it's another method, we're done
+            if line.startswith("    @staticmethod"):
+                in_func = False
+                out.append(line)
+        else:
+            in_func = False
+            out.append(line)
+    else:
+        out.append(line)
 
 with open("services/student_import_service.py", "w") as f:
-    f.write(content)
+    f.writelines(out)
