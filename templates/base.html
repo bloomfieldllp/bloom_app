@@ -129,6 +129,35 @@
                 overlay.classList.remove('active');
             }
         }
+
+        // Global SSE Live Sync & Counts Listener
+        if (window.EventSource && !window._liveSyncSetup) {
+            window._liveSyncSetup = true;
+            const evtSource = new EventSource('/api/sync/events');
+            evtSource.onmessage = function(e) {
+                if (!e.data || e.data.startsWith(':')) return;
+                try {
+                    const msg = JSON.parse(e.data);
+                    if (['student_created', 'student_updated', 'student_deleted', 'project_updated', 'school_updated', 'school_deleted'].includes(msg.type)) {
+                        // Revalidate counts
+                        fetch('/api/sync/counts')
+                            .then(res => res.json())
+                            .then(data => {
+                                const totalEl = document.getElementById('total-students-count') || document.getElementById('stats-total');
+                                if (totalEl) totalEl.textContent = data.total_students;
+                                const capEl = document.getElementById('captured-students-count') || document.getElementById('stats-captured');
+                                if (capEl) capEl.textContent = data.captured_students;
+                            })
+                            .catch(err => {});
+
+                        // Custom page listener if provided
+                        if (typeof window.onLiveSyncEvent === 'function') {
+                            window.onLiveSyncEvent(msg);
+                        }
+                    }
+                } catch(err) {}
+            };
+        }
     </script>
     <script src="/static/js/bloom_table.js"></script>
     {% block scripts %}{% endblock %}

@@ -173,8 +173,12 @@ def init_db():
         except Exception:
             pass
             
-        database.users.create_index("email", unique=True, sparse=True)
-        database.users.create_index("phone", unique=True)
+        try:
+            database.users.drop_index("phone_1")
+        except Exception:
+            pass
+            
+        database.users.create_index([("phone", 1), ("role", 1)], unique=True)
         database.users.create_index("school_id")
         
         database.projects.create_index([("school_id", 1), ("academic_year", 1)])

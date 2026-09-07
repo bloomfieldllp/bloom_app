@@ -902,6 +902,7 @@ async def add_student(
     roll_number = form_data.get("roll_number", "")
     date_of_birth = form_data.get("date_of_birth", "")
     address = form_data.get("address", "")
+    overwrite = str(form_data.get("overwrite", "")).lower() in ["true", "1", "yes"]
     
     custom_fields = {k.replace("custom_", ""): v for k, v in form_data.items() if k.startswith("custom_")}
     
@@ -914,9 +915,10 @@ async def add_student(
         StudentService.create_student(
             school_id=school_id, project_id=project_id, gr=gr, name=name,
             standard=standard, division=division, roll_number=roll_number,
-            date_of_birth=date_of_birth, address=address, custom_fields=custom_fields
+            date_of_birth=date_of_birth, address=address, custom_fields=custom_fields,
+            overwrite=overwrite
         )
-        return RedirectResponse(url=f"/operator/projects/{project_id}/session?msg=Student+added+successfully", status_code=303)
+        return RedirectResponse(url=f"/operator/projects/{project_id}/session?msg=Student+saved+successfully", status_code=303)
     except ValueError as e:
         return RedirectResponse(url=f"/operator/projects/{project_id}/session?error={str(e)}", status_code=303)
 

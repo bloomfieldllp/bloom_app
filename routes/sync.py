@@ -1,12 +1,16 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from bson import ObjectId
 from datetime import datetime, timezone
 import logging
+import asyncio
+import json
 
 from database import get_db
 from services.auth_service import AuthService
+from services.event_bus import event_bus
 
 router = APIRouter()
 logger = logging.getLogger("app.sync_routes")
@@ -24,6 +28,54 @@ class PushRequest(BaseModel):
 class PullRequest(BaseModel):
     operator_id: str
     since_version: Optional[str] = None
+
+@router.get("/api/sync/events")
+async def sse_events(request: Request):
+    q = event_bus.subscribe()
+    async def event_generator():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(q.get(), timeout=15.0)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"
+        finally:
+            event_bus.unsubscribe(q)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@router.get("/api/sync/counts")
+async def get_live_counts(school_id: Optional[str] = None, project_id: Optional[str] = None):
+    db = get_db()
+    student_query = {}
+    if school_id and school_id != "all":
+        student_query["school_id"] = school_id
+    if project_id and project_id != "all":
+        student_query["project_id"] = project_id
+        
+    try:
+        total_students = db.students.count_documents(student_query)
+        captured_query = student_query.copy()
+        captured_query["photo_status"] = "captured"
+        captured_students = db.students.count_documents(captured_query)
+        
+        total_schools = db.schools.count_documents({"status": "active"})
+        total_projects = db.projects.count_documents({"status": {"$ne": "deactivated"}})
+    except Exception:
+        total_students = 0
+        captured_students = 0
+        total_schools = 0
+        total_projects = 0
+        
+    return {
+        "total_students": total_students,
+        "captured_students": captured_students,
+        "total_schools": total_schools,
+        "total_projects": total_projects
+    }
 
 @router.post("/api/auth/login")
 async def api_login(req: LoginRequest):

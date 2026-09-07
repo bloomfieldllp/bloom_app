@@ -230,14 +230,19 @@ class LocalDB:
             conn.close()
 
     @classmethod
-    def get_user_by_term(cls, term: str) -> Optional[Dict[str, Any]]:
+    def get_users_by_term(cls, term: str) -> List[Dict[str, Any]]:
         conn = cls.get_connection()
         try:
             term_clean = term.strip().lower()
-            row = conn.execute("SELECT * FROM users WHERE LOWER(email) = ? OR phone = ?", (term_clean, term_clean)).fetchone()
-            return dict(row) if row else None
+            rows = conn.execute("SELECT * FROM users WHERE LOWER(email) = ? OR phone = ?", (term_clean, term_clean)).fetchall()
+            return [dict(r) for r in rows]
         finally:
             conn.close()
+
+    @classmethod
+    def get_user_by_term(cls, term: str) -> Optional[Dict[str, Any]]:
+        users = cls.get_users_by_term(term)
+        return users[0] if users else None
 
     @classmethod
     def save_school(cls, school: Dict[str, Any]):
@@ -527,7 +532,38 @@ class LocalDB:
                     s["custom_fields"] = {}
                     
                 students.append(s)
-            return students
+                
+            def get_sort_key(s):
+                std_raw = str(s.get("standard") or s.get("class_name") or "").strip()
+                std_num = int(std_raw) if std_raw.isdigit() else 999999
+                
+                roll_raw = str(s.get("roll_number") or "").strip()
+                roll_num = int(roll_raw) if roll_raw.isdigit() else 999999
+                
+                gr_str = str(s.get("gr") or "").strip()
+                name_str = str(s.get("name") or "").strip().lower()
+                
+                return (std_num, std_raw, roll_num, roll_raw, gr_str, name_str)
+
+            return sorted(students, key=get_sort_key)
+        finally:
+            conn.close()
+
+    @classmethod
+    def get_student_by_gr(cls, school_id: str, gr: str) -> Optional[Dict[str, Any]]:
+        conn = cls.get_connection()
+        try:
+            row = conn.execute("SELECT * FROM students WHERE school_id = ? AND gr = ?", (school_id, gr)).fetchone()
+            if row:
+                s = dict(row)
+                s["class_name"] = s["standard"]
+                s["section"] = s["division"]
+                s["_id"] = s["id"]
+                if s.get("custom_fields"):
+                    try: s["custom_fields"] = json.loads(s["custom_fields"])
+                    except Exception: s["custom_fields"] = {}
+                return s
+            return None
         finally:
             conn.close()
 

@@ -37,15 +37,16 @@ class AuthService:
     def create_user(user_data: Dict[str, Any]) -> str:
         db = get_db()
         
-        # Validate unique phone
+        role = user_data.get("role", "bloom_operator")
+        # Validate unique phone per role
         phone_input = str(user_data.get("phone", "")).strip()
         if not phone_input:
             raise ValueError("Phone number is mandatory.")
         
         # Normalize unless it is the underscore sentinel
         phone = normalize_phone(phone_input)
-        if phone != "_" and db.users.find_one({"phone": phone}):
-            raise ValueError("Phone number is already registered.")
+        if phone != "_" and db.users.find_one({"phone": phone, "role": role}):
+            raise ValueError("An account with this phone number and role already exists.")
             
         user_data["phone"] = phone
         
@@ -164,30 +165,44 @@ class AuthService:
             
             # 2. Try local SQLite authentication
             from services.local_db import LocalDB
-            user = LocalDB.get_user_by_term(search_term)
-            if user and user.get("status") == "active":
-                if AuthService.verify_password(password, user.get("password_hash", "")):
-                    user["_id"] = str(user["id"])
-                    if user.get("school_id"):
-                        user["school_id"] = str(user["school_id"])
-                    return user
+            local_users = []
+            if hasattr(LocalDB, "get_users_by_term"):
+                try:
+                    res_u = LocalDB.get_users_by_term(search_term)
+                    if isinstance(res_u, list):
+                        local_users = res_u
+                except Exception:
+                    pass
+            if not local_users and hasattr(LocalDB, "get_user_by_term"):
+                u = LocalDB.get_user_by_term(search_term)
+                if u and isinstance(u, dict):
+                    local_users = [u]
+                    
+            for user in local_users:
+                if user and user.get("status") == "active":
+                    if AuthService.verify_password(password, user.get("password_hash", "")):
+                        user["_id"] = str(user.get("id") or user.get("_id"))
+                        if user.get("school_id"):
+                            user["school_id"] = str(user["school_id"])
+                        return user
         else:
             # Try database first
             try:
                 db = get_db()
                 phone_normalized = normalize_phone(search_term) if "@" not in search_term else search_term
-                user = db.users.find_one({
+                candidates = list(db.users.find({
                     "$or": [
                         {"email": search_term.lower()},
                         {"phone": phone_normalized}
                     ]
-                })
-                if user and user.get("status") == "active":
-                    if AuthService.verify_password(password, user.get("password_hash", "")):
-                        user["_id"] = str(user["_id"])
-                        if user.get("school_id"):
-                            user["school_id"] = str(user["school_id"])
-                        return user
+                }))
+                for user in candidates:
+                    if user and user.get("status") == "active":
+                        if AuthService.verify_password(password, user.get("password_hash", "")):
+                            user["_id"] = str(user["_id"])
+                            if user.get("school_id"):
+                                user["school_id"] = str(user["school_id"])
+                            return user
             except Exception:
                 # Database offline fallback
                 pass

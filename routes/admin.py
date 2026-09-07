@@ -81,6 +81,33 @@ async def create_school(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/schools/{school_id}/delete")
+async def delete_school(
+    school_id: str,
+    user = Depends(RoleChecker(["bloom_admin"]))
+):
+    try:
+        SchoolService.delete_school(school_id)
+        return RedirectResponse(url="/admin/schools/directory?msg=School+deleted+successfully", status_code=303)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/api/students/check-duplicate")
+async def check_student_duplicate(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        form = await request.form()
+        data = dict(form)
+    school_id = data.get("school_id")
+    gr = data.get("gr")
+    
+    from services.student_service import StudentService
+    existing = StudentService.check_duplicate(school_id, gr)
+    if existing:
+        return {"exists": True, "student": existing}
+    return {"exists": False}
+
 @router.post("/users")
 async def create_user(
     request: Request,
@@ -530,6 +557,7 @@ async def add_student(
     roll_number = form_data.get("roll_number", "")
     date_of_birth = form_data.get("date_of_birth", "")
     address = form_data.get("address", "")
+    overwrite = str(form_data.get("overwrite", "")).lower() in ["true", "1", "yes"]
     
     custom_fields = {k.replace("custom_", ""): v for k, v in form_data.items() if k.startswith("custom_")}
     
@@ -542,9 +570,10 @@ async def add_student(
         StudentService.create_student(
             school_id=school_id, project_id=project_id, gr=gr, name=name,
             standard=standard, division=division, roll_number=roll_number,
-            date_of_birth=date_of_birth, address=address, custom_fields=custom_fields
+            date_of_birth=date_of_birth, address=address, custom_fields=custom_fields,
+            overwrite=overwrite
         )
-        return RedirectResponse(url=f"/admin/projects/{project_id}/students?msg=Student+added+successfully", status_code=303)
+        return RedirectResponse(url=f"/admin/projects/{project_id}/students?msg=Student+saved+successfully", status_code=303)
     except ValueError as e:
         return RedirectResponse(url=f"/admin/projects/{project_id}/students?error={str(e)}", status_code=303)
 

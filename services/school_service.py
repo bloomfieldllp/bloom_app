@@ -383,3 +383,38 @@ class SchoolService:
                             logger.error(f"Failed to auto-create HM user for school {school['name']}: {e}")
         except Exception as e:
             logger.error(f"Error in auto_create_missing_hm_users: {e}")
+
+    @staticmethod
+    def delete_school(school_id: str) -> bool:
+        db = get_db()
+        sid_str = str(school_id)
+        
+        try:
+            # Deactivate school
+            query = {"$or": [{"_id": ObjectId(sid_str) if ObjectId.is_valid(sid_str) else sid_str}, {"_id": sid_str}]}
+            db.schools.update_one(query, {"$set": {"status": "deactivated", "updated_at": datetime.now(timezone.utc)}})
+            
+            # Deactivate associated projects
+            db.projects.update_many({"school_id": sid_str}, {"$set": {"status": "deactivated", "updated_at": datetime.now(timezone.utc)}})
+            
+            # Deactivate associated school admin users
+            db.users.update_many({"school_id": sid_str, "role": "school_admin"}, {"$set": {"status": "deactivated", "updated_at": datetime.now(timezone.utc)}})
+        except Exception as e:
+            logger.error(f"MongoDB delete_school error: {e}")
+            
+        # Update local SQLite
+        try:
+            from services.local_db import LocalDB
+            conn = LocalDB.get_connection()
+            with conn:
+                conn.execute("UPDATE schools SET status = 'deactivated' WHERE id = ?", (sid_str,))
+                conn.execute("UPDATE projects SET status = 'deactivated' WHERE school_id = ?", (sid_str,))
+            conn.close()
+        except Exception:
+            pass
+            
+        # Broadcast live sync event
+        from services.event_bus import event_bus
+        event_bus.broadcast("school_deleted", {"school_id": sid_str})
+        
+        return True
