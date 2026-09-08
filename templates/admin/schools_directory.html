@@ -110,7 +110,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <button type="button" class="btn btn-danger" onclick="confirmDeleteSchool('{{ s._id }}', '{{ s.name|escapejs }}')" style="padding: 4px 8px; font-size: 0.75rem; background-color: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+                                <button type="button" class="btn btn-danger" onclick="confirmDeleteSchool('{{ s._id }}', '{{ s.name|replace("'", "\\'")|e }}')" style="padding: 4px 8px; font-size: 0.75rem; background-color: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
                             </td>
                         </tr>
                     {% endfor %}
