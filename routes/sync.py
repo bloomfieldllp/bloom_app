@@ -154,14 +154,21 @@ async def api_snapshot(req: SnapshotRequest):
     school_ids_str = list(set(str(p["school_id"]) for p in projects if p.get("school_id")))
     school_ids_match = []
     for sid in school_ids_str:
+        school_ids_match.append(sid)
         if ObjectId.is_valid(sid):
             school_ids_match.append(ObjectId(sid))
 
     # Fetch schools
-    schools = list(db.schools.find({"_id": {"$in": school_ids_match}})) if school_ids_match else []
+    schools = list(db.schools.find({"_id": {"$in": [s for s in school_ids_match if isinstance(s, ObjectId)]}})) if school_ids_match else []
     
-    # Fetch students
-    students = list(db.students.find({"project_id": {"$in": project_ids_match}})) if project_ids_match else []
+    # Fetch students (by project_id OR by school_id for assigned project schools)
+    student_or_clauses = []
+    if project_ids_match:
+        student_or_clauses.append({"project_id": {"$in": project_ids_match}})
+    if school_ids_match:
+        student_or_clauses.append({"school_id": {"$in": school_ids_match}})
+        
+    students = list(db.students.find({"$or": student_or_clauses})) if student_or_clauses else []
     student_ids = [str(s["_id"]) for s in students]
     
     # Fetch student photos

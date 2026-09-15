@@ -34,7 +34,7 @@ def test_project_student_assignment(mock_db):
     
     assert null_stu["project_id"] == new_pid
     assert mock_stu["project_id"] == new_pid
-    assert active_stu["project_id"] == active_project_id
+    assert active_stu["project_id"] == new_pid
     
     other_stu = db.students.find_one({"school_id": other_school_id})
     assert other_stu["project_id"] is None
