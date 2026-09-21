@@ -47,16 +47,22 @@ async def operator_dashboard(request: Request, user = Depends(RoleChecker(["bloo
                     "status": p.get("status", "active")
                 }
             s_copy = school.copy()
-            s_copy["_id"] = school["id"]
-            s_copy["project_id_raw"] = p["id"]
-            s_copy["project_id"] = p["project_id"]
-            s_copy["project_status"] = p["status"]
-            s_copy["academic_year"] = p["academic_year"]
-            if p["photography_start_date"]:
+            sid = str(school.get("id") or school.get("_id") or p.get("school_id"))
+            s_copy["_id"] = sid
+            s_copy["id"] = sid
+            s_copy["project_id_raw"] = p.get("id") or str(p.get("_id"))
+            s_copy["project_id"] = p.get("project_id", "")
+            s_copy["project_status"] = p.get("status", "scheduled")
+            s_copy["academic_year"] = p.get("academic_year", "")
+            
+            start_date = p.get("photography_start_date")
+            if isinstance(start_date, str) and start_date.strip():
                 try:
-                    s_copy["photography_start_date"] = datetime.fromisoformat(p["photography_start_date"])
+                    s_copy["photography_start_date"] = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
                 except Exception:
                     s_copy["photography_start_date"] = None
+            elif isinstance(start_date, datetime):
+                s_copy["photography_start_date"] = start_date
             else:
                 s_copy["photography_start_date"] = None
             
