@@ -360,7 +360,6 @@ async def api_pull(req: PullRequest):
     student_query = {"project_id": {"$in": project_ids_match}} if project_ids_match else {"project_id": {"$in": []}}
     
     if since_dt:
-        school_query["updated_at"] = {"$gt": since_dt}
         project_query["updated_at"] = {"$gt": since_dt}
         
         # If a project was updated recently (e.g. operator assignment changed),
@@ -387,8 +386,11 @@ async def api_pull(req: PullRequest):
         else:
             student_query["updated_at"] = {"$gt": since_dt}
         
-    schools_up = list(db.schools.find(school_query))
     projects_up = list(db.projects.find(project_query))
+    
+    # Always pull school details for all projects being synced so local SQLite has complete parent school metadata
+    pull_school_ids = list(set([ObjectId(p["school_id"]) for p in (projects_up if since_dt else projects) if p.get("school_id") and ObjectId.is_valid(p["school_id"])]))
+    schools_up = list(db.schools.find({"_id": {"$in": pull_school_ids}})) if pull_school_ids else []
     students_up = list(db.students.find(student_query))
     
     logger.info(f"SYNC PULL operator={operator_id} projects={len(projects_up)} students={len(students_up)}")

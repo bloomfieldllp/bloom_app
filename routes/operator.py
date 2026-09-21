@@ -37,25 +37,33 @@ async def operator_dashboard(request: Request, user = Depends(RoleChecker(["bloo
         completed_schools = []
         for p in projects:
             school = LocalDB.get_school(p["school_id"])
-            if school:
-                s_copy = school.copy()
-                s_copy["_id"] = school["id"]
-                s_copy["project_id_raw"] = p["id"]
-                s_copy["project_id"] = p["project_id"]
-                s_copy["project_status"] = p["status"]
-                s_copy["academic_year"] = p["academic_year"]
-                if p["photography_start_date"]:
-                    try:
-                        s_copy["photography_start_date"] = datetime.fromisoformat(p["photography_start_date"])
-                    except Exception:
-                        s_copy["photography_start_date"] = None
-                else:
+            if not school:
+                # Fallback placeholder school construct so assigned projects are never hidden if school sync is pending
+                school = {
+                    "id": p["school_id"],
+                    "name": p.get("name", "School").split(" - ")[0],
+                    "school_code": "",
+                    "location_link": "",
+                    "status": p.get("status", "active")
+                }
+            s_copy = school.copy()
+            s_copy["_id"] = school["id"]
+            s_copy["project_id_raw"] = p["id"]
+            s_copy["project_id"] = p["project_id"]
+            s_copy["project_status"] = p["status"]
+            s_copy["academic_year"] = p["academic_year"]
+            if p["photography_start_date"]:
+                try:
+                    s_copy["photography_start_date"] = datetime.fromisoformat(p["photography_start_date"])
+                except Exception:
                     s_copy["photography_start_date"] = None
-                
-                if s_copy["project_status"] == "completed":
-                    completed_schools.append(s_copy)
-                else:
-                    active_schools.append(s_copy)
+            else:
+                s_copy["photography_start_date"] = None
+            
+            if s_copy["project_status"] == "completed":
+                completed_schools.append(s_copy)
+            else:
+                active_schools.append(s_copy)
     else:
         db = get_db()
         # Get all projects assigned to this operator (show all projects for mock operator testing)
