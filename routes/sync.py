@@ -357,39 +357,46 @@ async def api_pull(req: PullRequest):
     # Query authorized objects for this operator
     school_query = {"_id": {"$in": school_ids_match}} if school_ids_match else {"_id": {"$in": []}}
     project_query = {"assigned_operator_id": {"$in": op_ids}} if operator_id != "mock_operator_id" else {}
-    student_query = {"project_id": {"$in": project_ids_match}} if project_ids_match else {"project_id": {"$in": []}}
+    school_ids_str = list(set(str(p["school_id"]) for p in projects if p.get("school_id")))
+    school_ids_match = []
+    for sid in school_ids_str:
+        school_ids_match.append(sid)
+        if ObjectId.is_valid(sid):
+            school_ids_match.append(ObjectId(sid))
+
+    # Query authorized objects for this operator
+    project_query = {"assigned_operator_id": {"$in": op_ids}} if operator_id != "mock_operator_id" else {}
+    
+    student_or_clauses = []
+    if project_ids_match:
+        student_or_clauses.append({"project_id": {"$in": project_ids_match}})
+    if school_ids_match:
+        student_or_clauses.append({"school_id": {"$in": school_ids_match}})
+        
+    student_query = {"$or": student_or_clauses} if student_or_clauses else {"_id": {"$in": []}}
     
     if since_dt:
         project_query["updated_at"] = {"$gt": since_dt}
         
-        # If a project was updated recently (e.g. operator assignment changed),
-        # we MUST pull all its students regardless of when the student was updated.
+        # Pull recently updated students or all students for recently assigned projects
         recently_updated_projects = list(db.projects.find({
             "_id": {"$in": [ObjectId(pid) for pid in project_ids_str if ObjectId.is_valid(pid)]},
             "updated_at": {"$gt": since_dt}
         }))
-        recently_updated_project_ids_match = []
-        for p in recently_updated_projects:
-            pid = str(p["_id"])
-            recently_updated_project_ids_match.append(pid)
-            if ObjectId.is_valid(pid):
-                recently_updated_project_ids_match.append(ObjectId(pid))
         
-        if recently_updated_project_ids_match:
+        if not recently_updated_projects:
+            # If projects didn't change, filter students updated after since_dt
             student_query = {
-                "project_id": {"$in": project_ids_match},
-                "$or": [
-                    {"updated_at": {"$gt": since_dt}},
-                    {"project_id": {"$in": recently_updated_project_ids_match}}
+                "$and": [
+                    {"$or": student_or_clauses} if student_or_clauses else {"_id": {"$in": []}},
+                    {"updated_at": {"$gt": since_dt}}
                 ]
             }
-        else:
-            student_query["updated_at"] = {"$gt": since_dt}
         
-    projects_up = list(db.projects.find(project_query))
+    projects_up = list(db.projects.find(project_query)) if since_dt else projects
     
     # Always pull school details for all projects being synced so local SQLite has complete parent school metadata
-    pull_school_ids = list(set([ObjectId(p["school_id"]) for p in (projects_up if since_dt else projects) if p.get("school_id") and ObjectId.is_valid(p["school_id"])]))
+    pull_school_ids = list(set([ObjectId(p["school_id"]) for p in projects_up if p.get("school_id") and ObjectId.is_valid(p["school_id"])]))
     schools_up = list(db.schools.find({"_id": {"$in": pull_school_ids}})) if pull_school_ids else []
     students_up = list(db.students.find(student_query))
     

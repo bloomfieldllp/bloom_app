@@ -87,7 +87,7 @@ class AuthService:
                 
                 import time
                 start_time = time.time()
-                res = httpx.post(url, json={"username": search_term, "password": password}, timeout=httpx.Timeout(10.0, connect=5.0, read=20.0))
+                res = httpx.post(url, json={"username": search_term, "password": password}, timeout=httpx.Timeout(5.0, connect=3.0, read=5.0))
                 elapsed = time.time() - start_time
                 
                 if res.status_code == 200:
@@ -99,10 +99,10 @@ class AuthService:
                     from services.local_db import LocalDB
                     LocalDB.save_user(user_data)
                     
-                    # Download initial snapshot
+                    # Download initial snapshot with sufficient timeout (30s)
                     try:
                         snap_url = f"{settings.REMOTE_SERVER_URL}/api/sync/snapshot"
-                        snap_res = httpx.post(snap_url, json={"operator_id": user_data["id"]}, timeout=10.0)
+                        snap_res = httpx.post(snap_url, json={"operator_id": user_data["id"]}, timeout=30.0)
                         if snap_res.status_code == 200:
                             snap_data = snap_res.json()
                             for s in snap_data.get("schools", []):
@@ -134,6 +134,13 @@ class AuthService:
                     except Exception as se:
                         logger.error(f"Failed to download snapshot during online login: {se}")
                     
+                    # Trigger background sync to keep data continuously refreshed
+                    try:
+                        from services.sync_service import SyncService
+                        SyncService.trigger_sync()
+                    except Exception:
+                        pass
+
                     user_doc = user_data.copy()
                     user_doc["_id"] = user_doc["id"]
                     return user_doc
