@@ -210,74 +210,110 @@ class ProjectService:
         except Exception:
             projects = []
             
+        if not projects:
+            return []
+
+        # Batch lookup schools, operators, and student statistics
+        project_ids_str = [str(p["_id"]) for p in projects]
+        school_ids_obj = [ObjectId(p["school_id"]) for p in projects if p.get("school_id") and ObjectId.is_valid(p["school_id"])]
+        op_ids_obj = [ObjectId(p["assigned_operator_id"]) for p in projects if p.get("assigned_operator_id") and ObjectId.is_valid(p["assigned_operator_id"])]
+
+        try:
+            schools_map = {str(s["_id"]): s.get("name", "Springfield Academy") for s in db.schools.find({"_id": {"$in": school_ids_obj}})} if school_ids_obj else {}
+            ops_map = {str(u["_id"]): u.get("name", "Jane Operator") for u in db.users.find({"_id": {"$in": op_ids_obj}})} if op_ids_obj else {}
+
+            stats_agg = list(db.students.aggregate([
+                {"$match": {"project_id": {"$in": project_ids_str}}},
+                {"$group": {
+                    "_id": "$project_id",
+                    "total_students": {"$sum": 1},
+                    "photographed_students": {"$sum": {"$cond": [{"$eq": ["$photo_status", "captured"]}, 1, 0]}}
+                }}
+            ]))
+            stats_map = {doc["_id"]: {
+                "total_students": doc["total_students"],
+                "photographed_students": doc["photographed_students"],
+                "pending_students": doc["total_students"] - doc["photographed_students"]
+            } for doc in stats_agg}
+        except Exception:
+            schools_map = {}
+            ops_map = {}
+            stats_map = {}
+
         for proj in projects:
-            proj["_id"] = str(proj["_id"])
-            proj["school_id"] = str(proj["school_id"])
+            pid = str(proj["_id"])
+            proj["_id"] = pid
+            sid = str(proj.get("school_id", ""))
+            opid = str(proj.get("assigned_operator_id", ""))
             
-            # Fetch school name
-            try:
-                school = db.schools.find_one({"_id": ObjectId(proj["school_id"])})
-                proj["school_name"] = school.get("name") if school else "Springfield Academy"
-            except Exception:
-                proj["school_name"] = "Springfield Academy"
+            proj["school_name"] = schools_map.get(sid, "Springfield Academy")
+            proj["operator_name"] = ops_map.get(opid, "Not Assigned" if not opid else "Jane Operator")
             
-            # Fetch operator name
-            op_id = proj.get("assigned_operator_id")
-            if op_id:
-                try:
-                    op = db.users.find_one({"_id": ObjectId(op_id)})
-                    proj["operator_name"] = op.get("name") if op else "Jane Operator"
-                except Exception:
-                    proj["operator_name"] = "Jane Operator"
+            st = stats_map.get(pid)
+            if st:
+                proj.update(st)
             else:
-                proj["operator_name"] = "Not Assigned"
+                proj.update({
+                    "total_students": 0,
+                    "photographed_students": 0,
+                    "pending_students": 0
+                })
                 
-            # Add student stats
-            stats = ProjectService.get_project_stats(proj["_id"])
-            proj.update(stats)
-            
         return projects
 
     @staticmethod
     def get_project_stats(project_id: str) -> Dict[str, int]:
         db = get_db()
         try:
-            total = db.students.count_documents({"project_id": project_id})
-            photographed = db.students.count_documents({"project_id": project_id, "photo_status": "captured"})
-            pending = total - photographed
-            
-            if total == 0:
+            agg = list(db.students.aggregate([
+                {"$match": {"project_id": project_id}},
+                {"$group": {
+                    "_id": None,
+                    "total": {"$sum": 1},
+                    "captured": {"$sum": {"$cond": [{"$eq": ["$photo_status", "captured"]}, 1, 0]}}
+                }}
+            ]))
+            if not agg or agg[0]["total"] == 0:
                 return {
-                    "total_students": 120,
-                    "photographed_students": 45,
-                    "pending_students": 75
+                    "total_students": 0,
+                    "photographed_students": 0,
+                    "pending_students": 0
                 }
                 
+            total = agg[0]["total"]
+            photographed = agg[0]["captured"]
             return {
                 "total_students": total,
                 "photographed_students": photographed,
-                "pending_students": pending
+                "pending_students": total - photographed
             }
         except Exception:
             return {
-                "total_students": 120,
-                "photographed_students": 45,
-                "pending_students": 75
+                "total_students": 0,
+                "photographed_students": 0,
+                "pending_students": 0
             }
 
     @staticmethod
     def get_school_stats(school_id: str) -> Dict[str, int]:
         db = get_db()
         try:
-            total = db.students.count_documents({"school_id": school_id})
-            photographed = db.students.count_documents({"school_id": school_id, "photo_status": "captured"})
-            pending = total - photographed
+            agg = list(db.students.aggregate([
+                {"$match": {"school_id": school_id}},
+                {"$group": {
+                    "_id": None,
+                    "total": {"$sum": 1},
+                    "captured": {"$sum": {"$cond": [{"$eq": ["$photo_status", "captured"]}, 1, 0]}}
+                }}
+            ]))
+            total = agg[0]["total"] if agg else 0
+            photographed = agg[0]["captured"] if agg else 0
             projects_count = db.projects.count_documents({"school_id": school_id})
             
             return {
                 "total_students": total,
                 "photographed_students": photographed,
-                "pending_students": pending,
+                "pending_students": total - photographed,
                 "projects_count": projects_count
             }
         except Exception:

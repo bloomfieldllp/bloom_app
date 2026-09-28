@@ -168,16 +168,26 @@ class SchoolService:
                 "status": "active"
             }]
         
-        # Hydrate with projects count and students count
+        # Hydrate with projects count and students count via batch queries
+        school_ids = [str(s["_id"]) for s in schools]
+        try:
+            prj_counts = {doc["_id"]: doc["count"] for doc in db.projects.aggregate([
+                {"$match": {"school_id": {"$in": school_ids}}},
+                {"$group": {"_id": "$school_id", "count": {"$sum": 1}}}
+            ])}
+            stu_counts = {doc["_id"]: doc["count"] for doc in db.students.aggregate([
+                {"$match": {"school_id": {"$in": school_ids}}},
+                {"$group": {"_id": "$school_id", "count": {"$sum": 1}}}
+            ])}
+        except Exception:
+            prj_counts = {}
+            stu_counts = {}
+
         for school in schools:
             school_id_str = str(school["_id"])
             school["_id"] = school_id_str
-            try:
-                school["projects_count"] = db.projects.count_documents({"school_id": school_id_str})
-                school["students_count"] = db.students.count_documents({"school_id": school_id_str})
-            except Exception:
-                school["projects_count"] = 1
-                school["students_count"] = 120
+            school["projects_count"] = prj_counts.get(school_id_str, 0)
+            school["students_count"] = stu_counts.get(school_id_str, 0)
         
         return schools
 

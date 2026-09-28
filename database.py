@@ -12,15 +12,13 @@ logger = logging.getLogger("app.database")
 client = None
 db = None
 is_mock = False
+_indexes_initialized = False
 
 def get_db():
     global client, db, is_mock
     if db is None:
         logger.info("Attempting to connect to real MongoDB instance...")
-        # Increase timeout to 5 seconds to accommodate Vercel cold starts
         client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=5000, socketTimeoutMS=5000)
-        # Trigger a ping check to fail fast if connection cannot be established
-        client.admin.command("ping")
         db = client[settings.MONGODB_DATABASE]
         is_mock = False
         logger.info("Successfully connected to real MongoDB instance.")

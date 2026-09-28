@@ -17,17 +17,23 @@ templates = get_templates()
 async def admin_dashboard(request: Request, user = Depends(RoleChecker(["bloom_admin"]))):
     db = get_db()
     schools = SchoolService.list_schools()
+    projects = ProjectService.list_projects()
     
-    # Calculate Active, Pending and Total School Stats
-    # Active: School with project status in ["scheduled", "in_progress"]
-    # Pending: School with project status "confirmed" but no photography_start_date
+    # Calculate Active, Pending and Total School Stats using pre-fetched projects
     active_schools_count = 0
     pending_schools_count = 0
     total_schools_count = len(schools)
     
+    projects_by_school = {}
+    for p in projects:
+        sid = str(p.get("school_id", ""))
+        if sid not in projects_by_school:
+            projects_by_school[sid] = []
+        projects_by_school[sid].append(p)
+
     for school in schools:
         school_id_str = school["_id"]
-        school_projects = list(db.projects.find({"school_id": school_id_str}))
+        school_projects = projects_by_school.get(school_id_str, [])
         is_active = any(p.get("status") in ["scheduled", "in_progress"] for p in school_projects)
         is_pending = any(p.get("status") == "confirmed" and not p.get("photography_start_date") for p in school_projects)
         
@@ -36,11 +42,18 @@ async def admin_dashboard(request: Request, user = Depends(RoleChecker(["bloom_a
         elif is_pending:
             pending_schools_count += 1
             
-    students_count = db.students.count_documents({})
-    photos_captured = db.students.count_documents({"photo_status": "captured"})
+    # Student stats
+    agg = list(db.students.aggregate([
+        {"$group": {
+            "_id": None,
+            "total": {"$sum": 1},
+            "captured": {"$sum": {"$cond": [{"$eq": ["$photo_status", "captured"]}, 1, 0]}}
+        }}
+    ]))
+    students_count = agg[0]["total"] if agg else 0
+    photos_captured = agg[0]["captured"] if agg else 0
     
-    projects = ProjectService.list_projects()
-    operators = list(db.users.find({"user_type": "operator"}))
+    operators = list(db.users.find({"$or": [{"user_type": "operator"}, {"role": "bloom_operator"}]}))
     for op in operators:
         op["_id"] = str(op["_id"])
         
