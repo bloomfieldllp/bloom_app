@@ -31,14 +31,7 @@ from config import settings
 from database import init_db, close_db
 from dependencies import get_current_user
 
-_startup_error = None
-try:
-    from routes import auth, admin, school, operator, sync, id_card_school, id_card_admin
-except Exception as _e:
-    import traceback
-    _startup_error = traceback.format_exc()
-    print(f"FATAL IMPORT ERROR: {_startup_error}")
-    auth = admin = school = operator = sync = id_card_school = id_card_admin = None
+from routes import auth, admin, school, operator, sync, id_card_school, id_card_admin
 
 # Setup logging
 log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
@@ -144,22 +137,14 @@ from utils import get_resource_path, get_templates
 app.mount("/static", StaticFiles(directory=get_resource_path("static")), name="static")
 templates = get_templates()
 
-# Include Routers (conditionally if import succeeded)
-for _router_mod in [auth, admin, school, operator, sync, id_card_school, id_card_admin]:
-    if _router_mod is not None:
-        app.include_router(_router_mod.router)
-
-@app.get("/debug/startup")
-async def debug_startup():
-    """Diagnostic endpoint to see import errors on Vercel."""
-    import sys
-    return JSONResponse({
-        "status": "error" if _startup_error else "ok",
-        "python_version": sys.version,
-        "startup_error": _startup_error,
-        "platform": __import__("platform").system(),
-        "is_vercel": os.environ.get("VERCEL") is not None
-    })
+# Include Routers
+app.include_router(auth.router)
+app.include_router(admin.router)
+app.include_router(school.router)
+app.include_router(operator.router)
+app.include_router(sync.router)
+app.include_router(id_card_school.router)
+app.include_router(id_card_admin.router)
 
 
 @app.get("/")

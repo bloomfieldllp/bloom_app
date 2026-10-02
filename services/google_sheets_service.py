@@ -2,7 +2,7 @@ import os
 import io
 import json
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, timezone
 import pandas as pd
 import openpyxl
