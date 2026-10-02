@@ -65,8 +65,8 @@
                         <h3 style="margin: 0; font-size: 1.3rem; font-weight: 800; color: #0f172a;">{{ s.name }}</h3>
                         <p style="margin: 2px 0 0 0; color: #64748b; font-size: 0.85rem;">Code: <strong>{{ s.school_code }}</strong></p>
                     </div>
-                    <span class="badge {% if prog.correction_window.status == 'ACTIVE' %}badge-active{% elif prog.correction_window.status == 'EXPIRED' %}badge-expired{% else %}badge-not-started{% endif %}" style="padding: 3px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700;">
-                        {{ prog.correction_window.status.replace('_', ' ').title() }}
+                    <span class="badge {% if prog.correction_window and prog.correction_window.status == 'ACTIVE' %}badge-active{% elif prog.correction_window and prog.correction_window.status == 'EXPIRED' %}badge-expired{% else %}badge-not-started{% endif %}" style="padding: 3px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700;">
+                        {{ ((prog.correction_window.status if prog.correction_window else None) or 'Not Configured')|replace('_', ' ')|title }}
                     </span>
                 </div>
 

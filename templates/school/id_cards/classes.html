@@ -143,16 +143,16 @@
     </div>
 
     <!-- Correction Window Alert Banner -->
-    <div class="window-banner {% if correction_window.status == 'ACTIVE' %}window-active{% elif correction_window.status == 'EXPIRED' %}window-expired{% else %}window-not-started{% endif %}">
+    <div class="window-banner {% if correction_window and correction_window.status == 'ACTIVE' %}window-active{% elif correction_window and correction_window.status == 'EXPIRED' %}window-expired{% else %}window-not-started{% endif %}">
         <div style="display: flex; align-items: center; gap: 10px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <div>
-                <strong>Correction Window:</strong> {{ correction_window.message }}
+                <strong>Correction Window:</strong> {{ (correction_window.message if correction_window else 'Open') }}
             </div>
         </div>
         <div>
-            <span class="badge {% if correction_window.status == 'ACTIVE' %}badge-verified{% elif correction_window.status == 'EXPIRED' %}badge-correction{% else %}badge-pending{% endif %}">
-                Status: {{ correction_window.status.replace('_', ' ').title() }}
+            <span class="badge {% if correction_window and correction_window.status == 'ACTIVE' %}badge-verified{% elif correction_window and correction_window.status == 'EXPIRED' %}badge-correction{% else %}badge-pending{% endif %}">
+                Status: {{ ((correction_window.status if correction_window else None) or 'Not Configured')|replace('_', ' ')|title }}
             </span>
         </div>
     </div>

@@ -12,30 +12,40 @@ from database import get_db
 from utils import get_templates
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(RoleChecker(["bloom_admin"]))])
-templates = get_templates()
+import logging
+
+logger = logging.getLogger("app.id_card_admin")
 
 @router.get("/id-cards", response_class=HTMLResponse)
 async def admin_id_cards_overview(
     request: Request,
     user = Depends(RoleChecker(["bloom_admin"]))
 ):
-    schools = SchoolService.list_schools()
-    school_stats = []
-    
-    for s in schools:
-        sid = str(s["_id"])
-        prog = IdCardService.get_school_progress(sid)
-        school_stats.append({
-            "school": s,
-            "progress": prog
-        })
+    try:
+        schools = SchoolService.list_schools()
+        school_stats = []
+        
+        for s in schools:
+            sid = str(s["_id"])
+            prog = IdCardService.get_school_progress(sid)
+            school_stats.append({
+                "school": s,
+                "progress": prog
+            })
 
-    return templates.TemplateResponse(request=request, name="admin/id_cards/overview.html", context={
-        "user": user,
-        "school_stats": school_stats,
-        "msg": request.query_params.get("msg"),
-        "error": request.query_params.get("error")
-    })
+        return templates.TemplateResponse(request=request, name="admin/id_cards/overview.html", context={
+            "user": user,
+            "school_stats": school_stats,
+            "msg": request.query_params.get("msg"),
+            "error": request.query_params.get("error")
+        })
+    except Exception as e:
+        logger.error(f"Failed to load admin ID cards overview: {e}", exc_info=True)
+        return templates.TemplateResponse(request=request, name="admin/id_cards/overview.html", context={
+            "user": user,
+            "school_stats": [],
+            "error": f"Error loading ID card data: {str(e)}"
+        })
 
 @router.get("/schools/{school_id}/id-card-config", response_class=HTMLResponse)
 async def school_id_card_config_page(

@@ -98,8 +98,8 @@
         </div>
         <div style="background: #fff; padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border-color);">
             <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Correction Window</span>
-            <span style="font-size: 1.2rem; font-weight: 800; display: block; margin-top: 6px; color: {% if correction_window.status == 'ACTIVE' %}#16a34a{% elif correction_window.status == 'EXPIRED' %}#dc2626{% else %}#2563eb{% endif %};">
-                {{ correction_window.status.replace('_', ' ').title() }}
+            <span style="font-size: 1.2rem; font-weight: 800; display: block; margin-top: 6px; color: {% if correction_window and correction_window.status == 'ACTIVE' %}#16a34a{% elif correction_window and correction_window.status == 'EXPIRED' %}#dc2626{% else %}#2563eb{% endif %};">
+                {{ ((correction_window.status if correction_window else None) or 'Not Configured')|replace('_', ' ')|title }}
             </span>
         </div>
     </div>
