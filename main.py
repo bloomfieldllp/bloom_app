@@ -36,16 +36,17 @@ from dependencies import get_current_user
 log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 logging.basicConfig(level=logging.INFO, format=log_format)
 
-try:
-    from logging.handlers import RotatingFileHandler
-    os.makedirs(settings.LOG_DIR, exist_ok=True)
-    log_file = os.path.join(settings.LOG_DIR, "bloom.log")
-    file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
-    file_handler.setFormatter(logging.Formatter(log_format))
-    file_handler.setLevel(logging.INFO)
-    logging.getLogger().addHandler(file_handler)
-except Exception as le:
-    print(f"Failed to initialize rotating file logger: {le}")
+if os.environ.get("VERCEL") is None:
+    try:
+        from logging.handlers import RotatingFileHandler
+        os.makedirs(settings.LOG_DIR, exist_ok=True)
+        log_file = os.path.join(settings.LOG_DIR, "bloom.log")
+        file_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+        file_handler.setFormatter(logging.Formatter(log_format))
+        file_handler.setLevel(logging.INFO)
+        logging.getLogger().addHandler(file_handler)
+    except Exception as le:
+        print(f"Failed to initialize rotating file logger: {le}")
 
 logger = logging.getLogger("app.main")
 
