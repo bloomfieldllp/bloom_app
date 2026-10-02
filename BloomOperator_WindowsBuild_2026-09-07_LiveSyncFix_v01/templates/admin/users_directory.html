@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Users Directory - BLOOM ID CARD{% endblock %}
+
+{% block content %}
+<div class="directory-header" style="margin-bottom: 2rem;">
+    <h1 style="font-weight: 800; letter-spacing: -0.03em; margin: 0;">Users Directory</h1>
+    <p class="subtitle" style="margin-top: 0.25rem;">Manage and audit all system users.</p>
+</div>
+
+<div class="card" style="padding: 1.5rem; width: 100%; min-width: 0;">
+    
+    <!-- Table Toolbar with Embedded Filter Dropdown -->
+    <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; width: 100%;">
+        
+        <!-- Left: Search input + embedded filter icon -->
+        <div style="position: relative; flex: 1; min-width: 250px; max-width: 400px; display: flex; align-items: center;">
+            <input type="text" class="form-control bloom-search-input" placeholder="Search table rows..." style="padding-right: 2.75rem; width: 100%;">
+            <button type="button" onclick="toggleFilterDropdown(event)" style="position: absolute; right: 0.5rem; border: none; background: none; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; height: 32px; width: 32px; border-radius: 50%; hover: background-color: var(--border-color); z-index: 10;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-filter"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
+            
+            <!-- Filters Dropdown Panel -->
+            <div id="filterDropdownPopover" class="card" style="display: none; position: absolute; top: 48px; left: 0; z-index: 250; min-width: 280px; padding: 1.25rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05); flex-direction: column; gap: 1rem;">
+                <div style="font-weight: 700; font-size: 0.85rem; text-transform: uppercase; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
+                    Filter Options
+                </div>
+                <form action="/admin/users/directory" method="GET" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div class="form-group" style="margin: 0;">
+                        <label for="filter_school" style="font-size: 0.8rem; font-weight: 600;">Linked School</label>
+                        <select id="filter_school" name="school_id" class="form-control" onchange="this.form.submit()">
+                            <option value="all" {% if school_id == 'all' %}selected{% endif %}>All Schools</option>
+                            {% for school in schools %}
+                                <option value="{{ school._id }}" {% if school_id == school._id %}selected{% endif %}>{{ school.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label for="filter_type" style="font-size: 0.8rem; font-weight: 600;">User Type</label>
+                        <select id="filter_type" name="user_type" class="form-control" onchange="this.form.submit()">
+                            <option value="all" {% if user_type == 'all' %}selected{% endif %}>All Types</option>
+                            <option value="school_user" {% if user_type == 'school_user' %}selected{% endif %}>School User</option>
+                            <option value="operator" {% if user_type == 'operator' %}selected{% endif %}>Operator</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label for="filter_status" style="font-size: 0.8rem; font-weight: 600;">Status</label>
+                        <select id="filter_status" name="status" class="form-control" onchange="this.form.submit()">
+                            <option value="all" {% if status == 'all' %}selected{% endif %}>All Statuses</option>
+                            <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+                            <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+                        </select>
+                    </div>
+                    <a href="/admin/users/directory" class="btn btn-secondary" style="text-align: center; text-decoration: none; padding: 0.5rem; font-size: 0.85rem;">Clear Filters</a>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Right: Actions wrapper for Columns Config button -->
+        <div class="table-actions" style="position: relative;"></div>
+        
+    </div>
+
+    <!-- Enhanced Table Container -->
+    {% if not users %}
+        <p style="color: var(--text-secondary); text-align: center; padding: 3rem 0;">No matching users found.</p>
+    {% else %}
+        <div class="table-container" style="width: 100%; min-width: 0;">
+            <table class="enhanced-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>User Type</th>
+                        <th>School</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ u.name }}</td>
+                            <td><code>{{ u.phone }}</code></td>
+                            <td>
+                                {% if u.email %}
+                                    {{ u.email }}
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-style: italic;">None</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge badge-secondary">{{ (u.user_type or '').replace('_', ' ').title() }}</span>
+                            </td>
+                            <td>
+                                <span style="font-size: 0.9rem;">{{ u.school_name }}</span>
+                            </td>
+                            <td>
+                                <span class="badge {% if u.status == 'active' %}badge-success{% else %}badge-danger{% endif %}">
+                                    {{ u.status.title() }}
+                                </span>
+                            </td>
+                            <td>
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                    <form action="/admin/users/{{ u._id }}/status" method="POST" style="display: inline;">
+                                        <input type="hidden" name="status" value="{% if u.status == 'active' %}inactive{% else %}active{% endif %}">
+                                        <button type="submit" class="btn {% if u.status == 'active' %}btn-secondary{% else %}btn-primary{% endif %}" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; min-height: auto;">
+                                            {% if u.status == 'active' %}Deactivate{% else %}Activate{% endif %}
+                                        </button>
+                                    </form>
+                                    
+                                    <!-- Reset Password Button & Popover Trigger -->
+                                    <button class="btn btn-secondary" onclick="toggleResetPopover('{{ u._id }}', event)" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; min-height: auto; position: relative;">
+                                        Reset Password
+                                        
+                                        <!-- Inline password reset popover -->
+                                        <div id="reset_popover_{{ u._id }}" class="card reset-popover" onclick="event.stopPropagation()" style="display: none; position: absolute; right: 0; top: 32px; z-index: 100; min-width: 250px; padding: 1rem; text-align: left; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+                                            <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem;">Reset Password for {{ u.name }}</h4>
+                                            <form action="/admin/users/{{ u._id }}/reset-password" method="POST">
+                                                <div class="form-group" style="margin-bottom: 0.75rem;">
+                                                    <input type="password" name="new_password" class="form-control" placeholder="New password" required minlength="6" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; min-height: auto;">
+                                                </div>
+                                                <div style="display: flex; gap: 0.5rem;">
+                                                    <button type="submit" class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; min-height: auto; flex: 1;">Save</button>
+                                                    <button type="button" class="btn btn-secondary" onclick="toggleResetPopover('{{ u._id }}', event)" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; min-height: auto; flex: 1;">Cancel</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleFilterDropdown(e) {
+        e.stopPropagation();
+        const pop = document.getElementById('filterDropdownPopover');
+        const isOpen = pop.style.display === 'flex';
+        pop.style.display = isOpen ? 'none' : 'flex';
+    }
+
+    function toggleResetPopover(userId, event) {
+        event.stopPropagation();
+        const allPopovers = document.querySelectorAll('.reset-popover');
+        allPopovers.forEach(p => {
+            if (p.id !== 'reset_popover_' + userId) {
+                p.style.display = 'none';
+            }
+        });
+        
+        const pop = document.getElementById('reset_popover_' + userId);
+        if (pop) {
+            pop.style.display = pop.style.display === 'block' ? 'none' : 'block';
+        }
+    }
+
+    document.addEventListener('click', () => {
+        const filterPop = document.getElementById('filterDropdownPopover');
+        if (filterPop) filterPop.style.display = 'none';
+        
+        const popovers = document.querySelectorAll('.reset-popover');
+        popovers.forEach(p => p.style.display = 'none');
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Map Columns - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div>
+        <a href="/school/projects/{{ project._id }}/import" class="back-link" style="text-decoration: none; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.9rem;">
+            ← Back to Upload
+        </a>
+        <h1 class="page-title">Map Columns: {{ filename }}</h1>
+        <p class="page-subtitle">Match your uploaded Excel columns to the system fields.</p>
+    </div>
+</div>
+
+<div class="card" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
+    <form action="/school/projects/{{ project._id }}/preview" method="POST" id="mapping-form">
+        <input type="hidden" name="temp_file_path" value="{{ temp_file_path }}">
+        <input type="hidden" name="filename" value="{{ filename }}">
+        
+        <h3 style="margin-bottom: 1rem;">Standard Fields</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <th style="text-align: left; padding: 8px;">System Field</th>
+                    <th style="text-align: left; padding: 8px;">Excel Column</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 12px 8px; font-weight: 500;">GR / Register No <span style="color: red;">*</span></td>
+                    <td style="padding: 12px 8px;">
+                        <select name="gr" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <option value="">-- Select Column --</option>
+                            {% for h in headers %}
+                            <option value="{{ h }}" {% if 'gr' in h.lower() %}selected{% endif %}>{{ h }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 8px; font-weight: 500;">Student Name <span style="color: red;">*</span></td>
+                    <td style="padding: 12px 8px;">
+                        <select name="name" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <option value="">-- Select Column --</option>
+                            {% for h in headers %}
+                            <option value="{{ h }}" {% if 'name' in h.lower() %}selected{% endif %}>{{ h }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 8px; font-weight: 500;">Date of Birth</td>
+                    <td style="padding: 12px 8px;">
+                        <select name="dob" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <option value="">-- Optional --</option>
+                            {% for h in headers %}
+                            <option value="{{ h }}">{{ h }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 8px; font-weight: 500;">Class / Standard</td>
+                    <td style="padding: 12px 8px;">
+                        <select name="class_name" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <option value="">-- Optional --</option>
+                            {% for h in headers %}
+                            <option value="{{ h }}">{{ h }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 8px; font-weight: 500;">Division / Section</td>
+                    <td style="padding: 12px 8px;">
+                        <select name="division" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <option value="">-- Optional --</option>
+                            {% for h in headers %}
+                            <option value="{{ h }}">{{ h }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">School Custom Fields</h3>
+            <button type="button" class="btn btn-secondary" onclick="addCustomFieldRow()" style="padding: 6px 12px; font-size: 0.85rem;">+ Add Field</button>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <th style="text-align: left; padding: 8px;">Custom Field</th>
+                    <th style="text-align: left; padding: 8px;">Excel Column</th>
+                    <th style="text-align: center; padding: 8px;">Hide in ID Card</th>
+                </tr>
+            </thead>
+            <tbody id="custom-fields-body">
+                {% for cf in custom_fields %}
+                <tr>
+                    <td style="padding: 12px 8px; font-weight: 500;">{{ cf.display_name }}</td>
+                    <td style="padding: 12px 8px;">
+                        <select name="custom_{{ cf.key }}" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <option value="">-- Optional --</option>
+                            {% for h in headers %}
+                            <option value="{{ h }}">{{ h }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td style="padding: 12px 8px; text-align: center;">
+                        <input type="checkbox" name="existing_hide_{{ cf.key }}" {% if cf.hide_in_id_card %}checked{% endif %}>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div style="text-align: right; margin-top: 2rem;">
+            <button type="submit" class="btn btn-primary" style="padding: 12px 24px; font-weight: 600;">Preview Data →</button>
+        </div>
+    </form>
+</div>
+
+<script>
+let newFieldIndex = 0;
+function addCustomFieldRow() {
+    const tbody = document.getElementById('custom-fields-body');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td style="padding: 12px 8px;">
+            <input type="text" name="new_custom_field_name_${newFieldIndex}" placeholder="e.g. PAN Number" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+        </td>
+        <td style="padding: 12px 8px;">
+            <select name="new_custom_field_col_${newFieldIndex}" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                <option value="">-- Select Column --</option>
+                {% for h in headers %}
+                <option value="{{ h }}">{{ h }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td style="padding: 12px 8px; text-align: center;">
+            <input type="checkbox" name="new_custom_field_hide_${newFieldIndex}">
+        </td>
+    `;
+    tbody.appendChild(tr);
+    newFieldIndex++;
+}
+</script>
+{% endblock %}

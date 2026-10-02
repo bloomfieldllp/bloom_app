@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Session Settings - BLOOM ID CARD{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div style="margin-bottom: 1.5rem;">
+        <a href="/operator/projects/{{ project._id }}/session" style="text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">← Back to Session</a>
+        <h1 style="margin-top: 0.25rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0;">Session Settings</h1>
+        <p class="subtitle" style="margin: 0; color: var(--text-secondary);">School: {{ school.name }}</p>
+    </div>
+
+    <div class="card" style="max-width: 600px;">
+        <div style="padding: 1.25rem; border-bottom: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h4 style="margin: 0; font-weight: 700; font-size: 0.95rem;">PHOTO STORAGE DIRECTORIES</h4>
+                <span id="storage-status-indicator" class="badge badge-secondary">Status: Checking...</span>
+            </div>
+        </div>
+        <div style="padding: 1.25rem;">
+            <div id="settings-alert-msg" style="display: none; padding: 0.75rem 1rem; border-radius: 8px; font-weight: 600; margin-bottom: 1rem;"></div>
+            
+            <form id="storage-config-form" onsubmit="saveStorageConfig(event)">
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);">Incoming Folder (Watcher Path)</label>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem; margin-top: 0;">This is the folder where your DSLR/camera tethering software saves new photos immediately.</p>
+                    <input type="text" id="incoming-folder-input" class="form-control" placeholder="e.g. E:/SchoolPhotos/Incoming/" value="{{ project.incoming_folder or '' }}" required>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);">Final Storage Folder</label>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem; margin-top: 0;">This is the persistent folder (like a Pen Drive or SD Card) where assigned photos are copied.</p>
+                    <input type="text" id="final-storage-input" class="form-control" placeholder="e.g. E:/SchoolPhotos/" value="{{ project.final_storage_folder or '' }}" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Save Configuration</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const projectId = "{{ project._id }}";
+    
+    // Test directory paths visually on load if possible (just based on existence of values)
+    document.addEventListener('DOMContentLoaded', () => {
+        const inc = document.getElementById('incoming-folder-input').value;
+        const fin = document.getElementById('final-storage-input').value;
+        if (inc && fin) {
+            updateIndicator('checking');
+            // Do a quick status check
+            fetch(`/operator/projects/${projectId}/session/status`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateIndicator(data.watcher_status);
+                    }
+                });
+        } else {
+            updateIndicator('disconnected');
+        }
+    });
+    
+    function updateIndicator(status) {
+        const ind = document.getElementById('storage-status-indicator');
+        if (status === 'connected') {
+            ind.className = 'badge badge-success';
+            ind.textContent = 'Connected & Active';
+        } else if (status === 'unavailable') {
+            ind.className = 'badge badge-warning';
+            ind.textContent = 'Path Not Found';
+        } else if (status === 'checking') {
+            ind.className = 'badge badge-secondary';
+            ind.textContent = 'Checking...';
+        } else {
+            ind.className = 'badge badge-secondary';
+            ind.textContent = 'Disconnected';
+        }
+    }
+
+    async function saveStorageConfig(e) {
+        e.preventDefault();
+        
+        const incoming = document.getElementById('incoming-folder-input').value;
+        const finalStorage = document.getElementById('final-storage-input').value;
+        
+        const formData = new FormData();
+        formData.append('incoming_folder', incoming);
+        formData.append('final_storage_folder', finalStorage);
+        
+        try {
+            const res = await fetch(`/operator/projects/${projectId}/config`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            
+            const alertBox = document.getElementById('settings-alert-msg');
+            alertBox.style.display = 'block';
+            
+            if (data.status === 'success') {
+                updateIndicator(data.watcher_status);
+                if (data.watcher_status === 'connected') {
+                    alertBox.style.backgroundColor = '#d4edda';
+                    alertBox.style.color = '#155724';
+                    alertBox.style.border = '1px solid #c3e6cb';
+                    alertBox.textContent = 'Configuration saved successfully. Folders are connected.';
+                } else {
+                    alertBox.style.backgroundColor = '#fff3cd';
+                    alertBox.style.color = '#856404';
+                    alertBox.style.border = '1px solid #ffeeba';
+                    alertBox.textContent = 'Configuration saved, but the folders could not be found locally.';
+                }
+            }
+        } catch(err) {
+            console.error(err);
+            alert('Failed to save directory configuration.');
+        }
+    }
+</script>
+{% endblock %}

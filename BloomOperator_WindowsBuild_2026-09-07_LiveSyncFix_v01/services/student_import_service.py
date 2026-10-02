@@ -1,0 +1,243 @@
+import io
+import pandas as pd
+from typing import List, Dict, Any, Tuple
+from database import get_db
+
+class StudentImportService:
+    @staticmethod
+    def read_excel_headers(files_data: List[Tuple[bytes, str]]) -> Tuple[List[str], bytes]:
+        if not files_data:
+            raise ValueError("No file provided.")
+        content, filename = files_data[0]
+        try:
+            df = pd.read_excel(io.BytesIO(content), header=None, nrows=30, dtype=str)
+        except Exception:
+            raise ValueError("Failed to read Excel file. Please ensure it is a valid .xlsx or .xls file.")
+            
+        max_non_null = 0
+        header_row_idx = 0
+        
+        for idx, row in df.iterrows():
+            count = sum(1 for val in row if pd.notna(val) and str(val).strip())
+            if count > max_non_null:
+                max_non_null = count
+                header_row_idx = idx
+                
+        headers = []
+        if max_non_null > 0:
+            for val in df.iloc[header_row_idx]:
+                if pd.notna(val) and str(val).strip():
+                    headers.append(str(val).strip())
+                    
+        return headers, content
+
+    @staticmethod
+    def parse_mapped_records(file_bytes: bytes, mapping: Dict[str, str], school_id: str) -> Dict[str, Any]:
+        try:
+            # Read first 30 rows to find the header row again
+            df_temp = pd.read_excel(io.BytesIO(file_bytes), header=None, nrows=30, dtype=str)
+            max_non_null = 0
+            header_row_idx = 0
+            for idx, row in df_temp.iterrows():
+                count = sum(1 for val in row if pd.notna(val) and str(val).strip())
+                if count > max_non_null:
+                    max_non_null = count
+                    header_row_idx = idx
+                    
+            # Now read the full dataframe using the correct header row
+            df = pd.read_excel(io.BytesIO(file_bytes), header=header_row_idx, dtype=str)
+        except Exception:
+            raise ValueError("Failed to parse Excel data.")
+            
+        # Clean columns
+        df.columns = [str(c).strip() for c in df.columns]
+        
+        # Drop rows where all mapped columns are NaN
+        mapped_cols = [col for col in mapping.values() if col in df.columns]
+        df.dropna(subset=mapped_cols, how='all', inplace=True)
+        
+        db = get_db()
+        existing_students = list(db.students.find({"school_id": school_id}, {"gr": 1}))
+        existing_grs = {str(s["gr"]).strip().lower() for s in existing_students if s.get("gr")}
+        
+        valid_records = []
+        duplicate_gr_in_file = {}
+        duplicate_gr_in_db = {}
+        missing_gr_count = 0
+        missing_name_count = 0
+        
+        seen_grs_in_file = {}
+        
+        for idx, row in df.iterrows():
+            record = {}
+            # Core fields
+            gr_col = mapping.get("gr")
+            name_col = mapping.get("name")
+            
+            gr_val = str(row[gr_col]).strip() if gr_col and gr_col in df.columns and pd.notna(row[gr_col]) else ""
+            name_val = str(row[name_col]).strip() if name_col and name_col in df.columns and pd.notna(row[name_col]) else ""
+            
+            if not gr_val:
+                missing_gr_count += 1
+                continue
+            if not name_val:
+                missing_name_count += 1
+                continue
+                
+            record["gr"] = gr_val
+            record["name"] = name_val
+            
+            # Other standard fields
+            for std_field in ["dob", "address", "contact", "class_name", "division", "gender", "roll_number"]:
+                col = mapping.get(std_field)
+                if col and col in df.columns and pd.notna(row[col]):
+                    record[std_field] = str(row[col]).strip()
+            
+            # Map standard aliases
+            if "class_name" in record:
+                record["standard"] = record["class_name"]
+            if "division" in record:
+                record["section"] = record["division"]
+                
+            # Custom fields
+            custom_fields = {}
+            for map_key, col in mapping.items():
+                if map_key.startswith("custom_") and col in df.columns and pd.notna(row[col]):
+                    field_key = map_key.replace("custom_", "", 1)
+                    custom_fields[field_key] = str(row[col]).strip()
+                    
+            if custom_fields:
+                record["custom_fields"] = custom_fields
+                
+            gr_lower = gr_val.lower()
+            if gr_lower in existing_grs:
+                if gr_val not in duplicate_gr_in_db:
+                    duplicate_gr_in_db[gr_val] = []
+                duplicate_gr_in_db[gr_val].append(idx + 1)
+                valid_records.append(record) # Old semantics: duplicates in DB are STILL VALID for update/replace!
+            elif gr_lower in seen_grs_in_file:
+                if gr_val not in duplicate_gr_in_file:
+                    duplicate_gr_in_file[gr_val] = [seen_grs_in_file[gr_lower]]
+                duplicate_gr_in_file[gr_val].append(idx + 1)
+            else:
+                seen_grs_in_file[gr_lower] = idx + 1
+                valid_records.append(record)
+                
+        return {
+            "total_rows": len(df),
+            "valid_records": valid_records,
+            "duplicate_gr_in_file_count": len(duplicate_gr_in_file),
+            "duplicate_gr_in_file": duplicate_gr_in_file,
+            "duplicate_gr_in_db_count": len(duplicate_gr_in_db),
+            "duplicate_gr_in_db": list(duplicate_gr_in_db.keys()),
+            "missing_gr_count": missing_gr_count,
+            "missing_name_count": missing_name_count,
+            "missing_std_count": 0
+        }
+
+    @staticmethod
+    def manual_execute_import(school_id: str, project_id: str, valid_records: List[Dict[str, Any]], action: str) -> Dict[str, int]:
+        from datetime import datetime, timezone
+        db = get_db()
+        now = datetime.now(timezone.utc)
+        
+        inserted = 0
+        updated = 0
+        deleted = 0
+        
+        if action == "replace":
+            del_res = db.students.delete_many({"project_id": project_id})
+            deleted = del_res.deleted_count
+            for rec in valid_records:
+                gr = rec["gr"]
+                existing = db.students.find_one({"school_id": school_id, "gr": gr})
+                
+                doc = {
+                    "name": rec["name"],
+                    "standard": rec.get("standard", ""),
+                    "division": rec.get("division", ""),
+                    "section": rec.get("section", ""),
+                    "roll_number": rec.get("roll_number", ""),
+                    "date_of_birth": rec.get("date_of_birth", ""),
+                    "address": rec.get("address", ""),
+                    "contact": rec.get("contact", ""),
+                    "gender": rec.get("gender", ""),
+                    "project_id": project_id,
+                    "updated_at": now
+                }
+                if "custom_fields" in rec:
+                    doc["custom_fields"] = rec["custom_fields"]
+                    
+                if existing:
+                    db.students.update_one({"_id": existing["_id"]}, {"$set": doc})
+                    inserted += 1 
+                else:
+                    doc["school_id"] = school_id
+                    doc["gr"] = gr
+                    doc["created_at"] = now
+                    doc["photo_status"] = "not_captured"
+                    db.students.insert_one(doc)
+                    inserted += 1
+                    
+        elif action == "update":
+            for rec in valid_records:
+                gr = rec["gr"]
+                existing = db.students.find_one({"school_id": school_id, "gr": gr})
+                
+                doc = {
+                    "name": rec["name"],
+                    "standard": rec.get("standard", ""),
+                    "division": rec.get("division", ""),
+                    "section": rec.get("section", ""),
+                    "roll_number": rec.get("roll_number", ""),
+                    "date_of_birth": rec.get("date_of_birth", ""),
+                    "address": rec.get("address", ""),
+                    "contact": rec.get("contact", ""),
+                    "gender": rec.get("gender", ""),
+                    "project_id": project_id,
+                    "updated_at": now
+                }
+                if "custom_fields" in rec:
+                    doc["custom_fields"] = rec["custom_fields"]
+                    
+                if existing:
+                    db.students.update_one({"_id": existing["_id"]}, {"$set": doc})
+                    updated += 1
+                else:
+                    doc["school_id"] = school_id
+                    doc["gr"] = gr
+                    doc["created_at"] = now
+                    doc["photo_status"] = "not_captured"
+                    db.students.insert_one(doc)
+                    inserted += 1
+                    
+        elif action == "add_only":
+            existing_students = list(db.students.find({"school_id": school_id}, {"gr": 1}))
+            existing_grs = {s["gr"] for s in existing_students if s.get("gr")}
+            
+            for rec in valid_records:
+                gr = rec["gr"]
+                if gr not in existing_grs:
+                    doc = {
+                        "school_id": school_id,
+                        "project_id": project_id,
+                        "gr": gr,
+                        "name": rec["name"],
+                        "standard": rec.get("standard", ""),
+                        "division": rec.get("division", ""),
+                        "section": rec.get("section", ""),
+                        "roll_number": rec.get("roll_number", ""),
+                        "date_of_birth": rec.get("date_of_birth", ""),
+                        "address": rec.get("address", ""),
+                        "contact": rec.get("contact", ""),
+                        "gender": rec.get("gender", ""),
+                        "created_at": now,
+                        "updated_at": now,
+                        "photo_status": "not_captured"
+                    }
+                    if "custom_fields" in rec:
+                        doc["custom_fields"] = rec["custom_fields"]
+                    db.students.insert_one(doc)
+                    inserted += 1
+                    
+        return {"inserted": inserted, "updated": updated, "deleted": deleted}

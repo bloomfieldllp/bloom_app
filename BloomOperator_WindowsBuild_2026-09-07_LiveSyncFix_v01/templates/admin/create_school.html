@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Register School - BLOOM ID CARD{% endblock %}
+
+{% block content %}
+<div class="login-container" style="min-height: auto; margin-top: 2rem; margin-bottom: 2rem;">
+    <div class="card" style="width: 100%; max-width: 600px; padding: 2rem;">
+        <h2 style="font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.25rem;">Register School</h2>
+        <p class="subtitle" style="margin-bottom: 1.5rem;">Register a new school to the platform.</p>
+        
+        <form action="/admin/schools" method="POST">
+            
+            <div class="form-group">
+                <label for="school_name">School Name *</label>
+                <input type="text" id="school_name" name="name" class="form-control" placeholder="Pineview Elementary School" required>
+            </div>
+
+            <div class="form-group">
+                <label for="school_code">School Code *</label>
+                <input type="text" id="school_code" name="school_code" class="form-control" placeholder="PINE01" required>
+            </div>
+
+            <div class="form-group">
+                <label for="hm_name">Contact Person (HM Name) *</label>
+                <input type="text" id="hm_name" name="hm_name" class="form-control" placeholder="John Doe" required>
+            </div>
+
+            <div class="form-group">
+                <label for="hm_phone">Contact Phone *</label>
+                <input type="tel" id="hm_phone" name="hm_phone" class="form-control" placeholder="9876543210" required>
+            </div>
+
+            <div class="form-group">
+                <label for="school_email">Contact Email (Optional)</label>
+                <input type="email" id="school_email" name="school_email" class="form-control" placeholder="principal@pineview.edu">
+            </div>
+
+            <div class="form-group">
+                <label for="location_link">Location Link *</label>
+                <input type="url" id="location_link" name="location_link" class="form-control" placeholder="https://maps.google.com/?q=..." required>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Register School</button>
+                <a href="/admin" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;">Cancel</a>
+            </div>
+            
+        </form>
+    </div>
+</div>
+{% endblock %}

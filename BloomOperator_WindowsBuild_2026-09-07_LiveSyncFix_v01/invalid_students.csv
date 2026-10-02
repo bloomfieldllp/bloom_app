@@ -1,0 +1,6 @@
+GR,Student Name,Standard,Roll No,Division
+1042,Rahul Sharma,8,12,A
+1042,Duplicate GR Student,8,13,A
+1178,,8,14,A
+1179,Missing Standard Student,,15,A
+1180,Valid Record Student,8,16,A

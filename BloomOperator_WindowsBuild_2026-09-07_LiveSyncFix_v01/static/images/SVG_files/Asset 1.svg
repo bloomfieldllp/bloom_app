@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 744.11 278.07">
+  <defs>
+    <style>
+      .cls-1 {
+        font-family: Chathura-Regular, Chathura;
+        font-size: 45.66px;
+        letter-spacing: .4em;
+      }
+
+      .cls-1, .cls-2 {
+        fill: #014b61;
+      }
+
+      .cls-3 {
+        fill: #f4b11b;
+      }
+
+      .cls-4 {
+        fill: #03597b;
+      }
+
+      .cls-5 {
+        fill: #89cdd6;
+      }
+
+      .cls-6 {
+        fill: #02858d;
+      }
+
+      .cls-7 {
+        fill: #f78c22;
+      }
+
+      .cls-8 {
+        fill: #5eb7c9;
+      }
+
+      .cls-9 {
+        fill: #f17524;
+      }
+
+      .cls-10 {
+        fill: #f7d116;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <g>
+        <path id="Rectangle_14" data-name="Rectangle 14" class="cls-6" d="M506.43,125.32h0c0,33.47-27.13,60.59-60.59,60.59h0v-60.59h60.59Z"/>
+        <path id="Rectangle_15" data-name="Rectangle 15" class="cls-9" d="M569.69,185.92h0c-33.47,0-60.59-27.13-60.59-60.59h60.59v60.59h0Z"/>
+        <path id="Rectangle_16" data-name="Rectangle 16" class="cls-8" d="M445.83,123.33v-60.59h0c33.47,0,60.59,27.13,60.59,60.59h0s-60.59,0-60.59,0h0Z"/>
+        <path id="Rectangle_17" data-name="Rectangle 17" class="cls-4" d="M569.69,123.33h-60.59c0-33.47,27.13-60.59,60.59-60.59h0v60.59h0Z"/>
+        <path id="Rectangle_18" data-name="Rectangle 18" class="cls-3" d="M506.43,0h0c0,33.47-27.13,60.59-60.59,60.59h0V0h60.59Z"/>
+        <path id="Rectangle_19" data-name="Rectangle 19" class="cls-10" d="M569.69,60.59h0c-33.47,0-60.59-27.13-60.59-60.59h60.59v60.59h0Z"/>
+        <path id="Rectangle_22" data-name="Rectangle 22" class="cls-6" d="M195.1,186v-60.59h0c33.47,0,60.59,27.13,60.59,60.59h0s-60.59,0-60.59,0h0Z"/>
+        <path id="Rectangle_23" data-name="Rectangle 23" class="cls-9" d="M318.96,186h0c-33.47,0-60.59-27.13-60.59-60.59h60.59v60.59h0Z"/>
+        <path id="Rectangle_24" data-name="Rectangle 24" class="cls-8" d="M255.69,62.82h0c0,33.47-27.13,60.59-60.59,60.59h0v-60.59h60.59Z"/>
+        <path id="Rectangle_25" data-name="Rectangle 25" class="cls-4" d="M318.96,123.41h-60.59c0-33.47,27.13-60.59,60.59-60.59h0v60.59h0Z"/>
+        <path id="Rectangle_26" data-name="Rectangle 26" class="cls-3" d="M195.1,60.67V.08h0c33.47,0,60.59,27.13,60.59,60.59h0s-60.59,0-60.59,0h0Z"/>
+        <path id="Rectangle_27" data-name="Rectangle 27" class="cls-10" d="M318.96,60.67h0c-33.47,0-60.59-27.13-60.59-60.59h60.59v60.59h0Z"/>
+        <path id="Rectangle_28" data-name="Rectangle 28" class="cls-7" d="M320.68,123.41h0c0-33.47,27.13-60.59,60.59-60.59h0v60.59h-60.59Z"/>
+        <path id="Rectangle_29" data-name="Rectangle 29" class="cls-6" d="M383.26,185.92h0c0-33.47,27.13-60.59,60.59-60.59h0v60.59h-60.59Z"/>
+        <path id="Rectangle_30" data-name="Rectangle 30" class="cls-5" d="M321.24,155.7v-30.3h60.59v30.3c0,16.73-13.56,30.3-30.3,30.3h0c-16.73,0-30.3-13.56-30.3-30.3Z"/>
+        <path id="Rectangle_31" data-name="Rectangle 31" class="cls-9" d="M443.85,62.74h0c0,33.47-27.13,60.59-60.59,60.59h0v-60.59h60.59Z"/>
+        <circle id="Ellipse_17" data-name="Ellipse 17" class="cls-10" cx="370.89" cy="28.43" r="28.35"/>
+      </g>
+      <text class="cls-1" transform="translate(35.3 250.58)"><tspan x="0" y="0">SHAPE YOUR DREAMS HERE</tspan></text>
+      <circle class="cls-2" cx="2.39" cy="240.98" r="2.39"/>
+      <circle class="cls-2" cx="741.71" cy="240.98" r="2.39"/>
+    </g>
+  </g>
+</svg>

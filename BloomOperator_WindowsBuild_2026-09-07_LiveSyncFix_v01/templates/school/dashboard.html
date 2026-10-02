@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}School Portal Dashboard - Bloom{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout" style="margin-top: 1rem;">
+    {% if error %}
+    <div class="alert alert-error" style="grid-column: 1 / -1; margin-bottom: 1rem; padding: 1rem; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px;">
+        {{ error }}
+    </div>
+    {% endif %}
+    {% if msg %}
+    <div class="alert alert-success" style="grid-column: 1 / -1; margin-bottom: 1rem; padding: 1rem; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px;">
+        {{ msg }}
+    </div>
+    {% endif %}
+
+    <!-- Left Zone: Info and stats -->
+    <div style="display: flex; flex-direction: column; gap: 2rem;">
+        <div>
+            <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">School Portal</span>
+            <h1 style="color: #111; font-weight: 800; font-size: 2.5rem; letter-spacing: -0.03em; margin: 0.25rem 0 0.5rem 0;">{{ school.name }}</h1>
+            <p style="color: #555; font-size: 1.05rem; line-height: 1.5; margin: 0; font-style: italic;">
+                "Educating the mind without educating the heart is no education at all." — Welcome to your student photography tracking dashboard.
+            </p>
+        </div>
+
+        <!-- Three compact statistic cards -->
+        <div class="stat-card-row">
+            <div class="stat-box">
+                <span class="stat-box-label">Total Students</span>
+                <span class="stat-box-value">{{ stats.total_students }}</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-box-label">Photographed</span>
+                <span class="stat-box-value" style="color: #2E7D32;">{{ stats.photographed_students }}</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-box-label">Remaining</span>
+                <span class="stat-box-value" style="color: #ED6C02;">{{ stats.pending_students }}</span>
+            </div>
+        </div>
+
+        <!-- Bottom CTA -->
+        <div style="margin-top: 0.5rem;">
+            {% if stats.total_students == 0 %}
+                <a href="/school/import" class="btn-primary-dark">Upload Student Data</a>
+            {% else %}
+                <a href="/school/import" class="btn-primary-dark">Update Student Data</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Zone: Large abstract illustration -->
+    <div style="display: flex; justify-content: center; align-items: center;">
+        <div style="width: 100%; max-width: 380px;">
+            <svg viewBox="0 0 400 400" width="100%" height="auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M50 180C50 90 120 50 200 50C280 50 350 100 350 180C350 260 270 350 200 350C110 350 50 270 50 180Z" fill="#F4EFE3" opacity="0.6"/>
+                <circle cx="160" cy="180" r="100" fill="#FFE5D9" opacity="0.8"/>
+                <circle cx="250" cy="200" r="85" fill="#D8E2DC" opacity="0.8"/>
+                <circle cx="210" cy="140" r="60" fill="#FFCAD4" opacity="0.7"/>
+                <path d="M120 280C120 220 180 180 180 180C180 180 220 240 180 280C150 310 120 310 120 280Z" fill="#B7B7A4" opacity="0.8"/>
+                <circle cx="210" cy="190" r="45" stroke="#2C2C2A" stroke-width="3" stroke-dasharray="4 4"/>
+                <circle cx="210" cy="190" r="30" stroke="#2C2C2A" stroke-width="4"/>
+                <circle cx="210" cy="190" r="8" fill="#2C2C2A"/>
+                <path d="M170 120L210 105L250 120L210 135Z" fill="#2C2C2A"/>
+                <path d="M190 127V145C190 150 230 150 230 145V127" stroke="#2C2C2A" stroke-width="2" fill="none"/>
+            </svg>
+        </div>
+    </div>
+</div>
+{% endblock %}

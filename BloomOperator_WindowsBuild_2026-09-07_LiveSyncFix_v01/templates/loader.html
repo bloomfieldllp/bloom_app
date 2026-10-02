@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Bloom ID Card</title>
+
+    <link
+        rel="stylesheet"
+        href="/static/css/style.css"
+    >
+</head>
+
+<body>
+
+<!--
+    ============================================================
+    BLOOM LOADER
+    ============================================================
+
+    DOM architecture:
+
+    .loader
+    │
+    ├── .l-bg-a          — full-screen image for State A (current clip)
+    │
+    ├── .l-shrink-wrap   — the shrinking rectangle for A→B
+    │   ├── .l-shrink-img-a   — current image inside rectangle
+    │   └── .l-shrink-img-b   — next image crossfading inside rectangle
+    │
+    ├── .l-state-b-stage — white canvas for State B / B→A
+    │   └── #lImageTextWrap   — wrapper scaled dynamically for B→A
+    │       ├── #lImageTextA  — text layer with current image (visible during typing)
+    │       └── #lImageTextB  — overlay text layer with destination image (fades in during grow)
+    │
+    └── .l-normal        — normal state overlay (logo + quote + author)
+        ├── img.l-logo
+        └── .l-quote-wrap
+            ├── .l-quote
+            └── .l-author
+-->
+
+<main
+    class="loader"
+    id="bloom-loader"
+    aria-label="Loading Bloom ID Card"
+    role="progressbar"
+    aria-busy="true"
+>
+
+    <!-- STATE A: full-screen background image -->
+    <div class="l-bg-a" id="lBgA"></div>
+
+
+    <!-- A→B: the single shrinking rectangle (contains both images) -->
+    <div class="l-shrink-wrap" id="lShrinkWrap">
+        <div class="l-shrink-img" id="lShrinkImgA"></div>
+        <div class="l-shrink-img" id="lShrinkImgB"></div>
+    </div>
+
+
+    <!-- STATE B + B→A: white stage with image-filled typography -->
+    <div class="l-state-b-stage" id="lStateBStage">
+        <div class="l-image-text-wrap" id="lImageTextWrap">
+            <!-- Text A contains the typing cursor -->
+            <p class="l-image-text l-text-a" id="lImageTextA">
+                <span class="l-text-content" id="lImageTextContentA"></span><span class="l-cursor" id="lImageTextCursor"></span>
+            </p>
+            <!-- Text B is used for smooth crossfade to the next image during B->A -->
+            <p class="l-image-text l-text-b" id="lImageTextB">
+                <span class="l-text-content" id="lImageTextContentB"></span>
+            </p>
+        </div>
+    </div>
+
+
+    <!-- NORMAL STATE: logo + quote + author -->
+    <div class="l-normal" id="lNormal">
+
+        <img
+            class="l-logo"
+            id="lLogo"
+            src="/static/images/bloom-logo.svg"
+            alt="Bloom"
+        >
+
+        <div class="l-quote-wrap" id="lQuoteWrap">
+            <p class="l-quote" id="lQuote">
+                <span id="lQuoteText"></span><span class="l-cursor" id="lQuoteCursor"></span>
+            </p>
+            <p class="l-author" id="lAuthor"></p>
+        </div>
+
+    </div>
+
+</main>
+
+
+<script src="/static/js/loader.js"></script>
+
+</body>
+</html>

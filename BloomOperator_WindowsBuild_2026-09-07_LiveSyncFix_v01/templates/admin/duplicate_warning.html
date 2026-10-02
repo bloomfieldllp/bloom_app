@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Duplicate Project Warning - BLOOM ID CARD{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="card" style="max-width: 500px; padding: 2rem;">
+        <h2 style="color: var(--warning); margin-bottom: 1rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+            Active Project Warning
+        </h2>
+        <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.5rem; color: var(--text-primary);">
+            This school already has an active photography project.
+        </p>
+        
+        <div style="background: var(--bg-primary); padding: 1rem; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 2rem;">
+            <div style="margin-bottom: 0.5rem;">
+                <strong>Project ID:</strong> <code>{{ project.project_id }}</code>
+            </div>
+            <div style="margin-bottom: 0.5rem;">
+                <strong>School Name:</strong> {{ school.name }}
+            </div>
+            <div>
+                <strong>Current Status:</strong> <span class="badge badge-secondary">{{ project.status.title() }}</span>
+            </div>
+        </div>
+        
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+            Would you like to update the existing active project status to <strong>{{ new_status.title() }}</strong>?
+        </p>
+        
+        <div style="display: flex; gap: 1rem;">
+            <form action="/admin/projects/quick-update" method="POST" style="flex: 1;">
+                <input type="hidden" name="school_id" value="{{ school._id }}">
+                <input type="hidden" name="status" value="{{ new_status }}">
+                <input type="hidden" name="confirm_update" value="true">
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Update Existing</button>
+            </form>
+            <a href="/admin" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;">Cancel</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
