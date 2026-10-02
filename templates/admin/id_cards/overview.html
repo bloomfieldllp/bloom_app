@@ -100,11 +100,17 @@
 
             <!-- Action buttons -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                <a href="/admin/schools/{{ s._id }}/upload-cards" class="btn-secondary" style="padding: 0.5rem; text-align: center; border-radius: 8px; border: 1px solid #bbf7d0; background: #f0fdf4; font-size: 0.85rem; font-weight: 700; text-decoration: none; color: #166534;">
+                    ⬆ Upload Cards
+                </a>
                 <a href="/admin/schools/{{ s._id }}/id-card-config" class="btn-secondary" style="padding: 0.5rem; text-align: center; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: #334155;">
                     ⚙ Fields
                 </a>
                 <a href="/admin/schools/{{ s._id }}/correction-window" class="btn-secondary" style="padding: 0.5rem; text-align: center; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: #334155;">
                     🕒 Window
+                </a>
+                <a href="/admin/schools/{{ s._id }}/id-cards/export" class="btn-secondary" style="padding: 0.5rem; text-align: center; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: #334155;">
+                    📥 Export Excel
                 </a>
                 <a href="/admin/schools/{{ s._id }}/id-card-progress" class="btn-secondary" style="grid-column: 1 / -1; padding: 0.6rem; text-align: center; border-radius: 8px; background: #0f172a; color: #fff; font-size: 0.88rem; font-weight: 600; text-decoration: none;">
                     View Progress & Corrections →

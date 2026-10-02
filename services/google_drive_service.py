@@ -30,9 +30,12 @@ class GoogleDriveService:
 
     ROOT_FOLDER_NAME = "ID Card Photos"
     CORRECTION_FOLDER_NAME = "Correction Needed"
+    LOCAL_STORAGE_ROOT: Optional[str] = None
     
     @classmethod
     def get_base_storage_root(cls) -> str:
+        if cls.LOCAL_STORAGE_ROOT:
+            return cls.LOCAL_STORAGE_ROOT
         if os.environ.get("VERCEL") is not None or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") is not None:
             return "/tmp/drive_storage"
         return os.environ.get("BLOOM_DRIVE_LOCAL_ROOT", os.path.join(os.path.dirname(os.path.dirname(__file__)), "drive_storage"))
@@ -254,22 +257,106 @@ class GoogleDriveService:
         }
 
     @classmethod
-    def get_id_card_bytes(cls, school_name_or_code: str, class_name: str, file_stem_or_name: str) -> Optional[Tuple[bytes, str]]:
+    def save_id_card_image(
+        cls,
+        school_name_or_code: str,
+        class_name: str,
+        filename: str,
+        file_bytes: bytes,
+        school_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Returns (bytes, content_type) for the requested ID card JPG.
+        Saves an uploaded ID card image to the school/class folder.
+        Also caches to MongoDB (id_card_images) for persistent serverless cloud serving.
         """
-        found = cls.find_id_card_jpg(school_name_or_code, class_name, file_stem_or_name)
-        if not found or not os.path.exists(found["path"]):
-            return None
+        class_dir = cls.get_class_folder_path(school_name_or_code, class_name)
+        safe_filename = os.path.basename(filename)
+        dest_path = os.path.join(class_dir, safe_filename)
+        
+        try:
+            with open(dest_path, "wb") as f:
+                f.write(file_bytes)
+        except Exception as e:
+            logger.warning(f"Could not write image to local disk {dest_path}: {e}")
             
-        ext = os.path.splitext(found["name"])[1].lower()
+        file_stem = os.path.splitext(safe_filename)[0].lower().strip()
+        ext = os.path.splitext(safe_filename)[1].lower()
         content_type = "image/jpeg"
         if ext == ".png":
             content_type = "image/png"
         elif ext == ".webp":
             content_type = "image/webp"
+
+        # Cache in MongoDB
+        try:
+            from database import get_db
+            db = get_db()
+            db.id_card_images.update_one(
+                {
+                    "school_name_or_code": str(school_name_or_code).strip(),
+                    "class_name": str(class_name).strip(),
+                    "file_stem": file_stem
+                },
+                {
+                    "$set": {
+                        "school_name_or_code": str(school_name_or_code).strip(),
+                        "school_id": str(school_id) if school_id else None,
+                        "class_name": str(class_name).strip(),
+                        "filename": safe_filename,
+                        "file_stem": file_stem,
+                        "content_type": content_type,
+                        "image_bytes": file_bytes,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }
+                },
+                upsert=True
+            )
+        except Exception as dbe:
+            logger.warning(f"Could not cache image in MongoDB: {dbe}")
+
+        logger.info(f"Saved ID card image {safe_filename} for class {class_name} ({len(file_bytes)} bytes)")
+        return {
+            "status": "saved",
+            "filename": safe_filename,
+            "path": dest_path,
+            "size": len(file_bytes),
+            "file_stem": file_stem
+        }
+
+    @classmethod
+    def get_id_card_bytes(cls, school_name_or_code: str, class_name: str, file_stem_or_name: str) -> Optional[Tuple[bytes, str]]:
+        """
+        Returns (bytes, content_type) for the requested ID card JPG.
+        Checks local filesystem first, then MongoDB database cache.
+        """
+        found = cls.find_id_card_jpg(school_name_or_code, class_name, file_stem_or_name)
+        if found and os.path.exists(found["path"]):
+            ext = os.path.splitext(found["name"])[1].lower()
+            content_type = "image/jpeg"
+            if ext == ".png":
+                content_type = "image/png"
+            elif ext == ".webp":
+                content_type = "image/webp"
+                
+            with open(found["path"], "rb") as f:
+                data = f.read()
+            return data, content_type
             
-        with open(found["path"], "rb") as f:
-            data = f.read()
+        # Fallback to MongoDB cache
+        try:
+            from database import get_db
+            db = get_db()
+            stem_clean = os.path.splitext(file_stem_or_name)[0].lower().strip()
+            img_doc = db.id_card_images.find_one({
+                "$or": [
+                    {"school_name_or_code": str(school_name_or_code).strip(), "class_name": str(class_name).strip(), "file_stem": stem_clean},
+                    {"class_name": str(class_name).strip(), "file_stem": stem_clean},
+                    {"file_stem": stem_clean}
+                ]
+            })
+            if img_doc and img_doc.get("image_bytes"):
+                return bytes(img_doc["image_bytes"]), img_doc.get("content_type", "image/jpeg")
+        except Exception as e:
+            logger.debug(f"Error fetching image from DB cache: {e}")
             
-        return data, content_type
+        return None

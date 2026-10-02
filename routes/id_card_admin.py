@@ -1,6 +1,6 @@
 import json
 from typing import Optional, Dict, Any, List
-from fastapi import APIRouter, Request, Depends, Form, HTTPException, Response
+from fastapi import APIRouter, Request, Depends, Form, HTTPException, Response, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from bson import ObjectId
 
@@ -233,3 +233,64 @@ async def admin_export_school_corrections(
             "Content-Disposition": f"attachment; filename=\"{filename}\""
         }
     )
+
+@router.get("/schools/{school_id}/upload-cards", response_class=HTMLResponse)
+async def school_upload_cards_page(
+    request: Request,
+    school_id: str,
+    user = Depends(RoleChecker(["bloom_admin"]))
+):
+    school = SchoolService.get_school(school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    classes = IdCardService.list_school_classes(school_id)
+    
+    return templates.TemplateResponse(request=request, name="admin/id_cards/upload.html", context={
+        "user": user,
+        "school": school,
+        "classes": classes,
+        "msg": request.query_params.get("msg"),
+        "error": request.query_params.get("error")
+    })
+
+@router.post("/schools/{school_id}/upload-cards")
+async def handle_school_upload_cards(
+    school_id: str,
+    files: List[UploadFile] = File(...),
+    excel_file: Optional[UploadFile] = File(None),
+    default_class: Optional[str] = Form(None),
+    file_paths: Optional[List[str]] = Form(None),
+    user = Depends(RoleChecker(["bloom_admin"]))
+):
+    school = SchoolService.get_school(school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    excel_bytes = None
+    if excel_file and excel_file.filename:
+        excel_bytes = await excel_file.read()
+
+    file_tuples = []
+    for idx, f in enumerate(files):
+        if not f.filename:
+            continue
+        path_name = f.filename
+        if file_paths and idx < len(file_paths) and file_paths[idx]:
+            path_name = file_paths[idx]
+        content = await f.read()
+        file_tuples.append((path_name, content))
+
+    res = IdCardService.import_and_upload_id_cards(
+        school_id=school_id,
+        files=file_tuples,
+        excel_file_bytes=excel_bytes,
+        default_class_name=default_class
+    )
+
+    msg = res.get("message", "Upload completed successfully")
+    return RedirectResponse(
+        url=f"/admin/schools/{school_id}/id-card-progress?msg={msg}",
+        status_code=303
+    )
+

@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Upload ID Cards & Roster - {{ school.name }} - Bloom Admin{% endblock %}
+
+{% block head %}
+<style>
+.upload-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-top: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+.drop-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--brand-primary);
+    background: #f0fdf4;
+}
+.file-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #e2e8f0;
+    color: #334155;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.info-callout {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    padding: 1rem;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 1.5rem;
+    color: #1e40af;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto; padding: 1rem 0;">
+    {% if error %}
+    <div class="alert alert-error" style="margin-bottom: 1rem; padding: 1rem; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 8px;">
+        {{ error }}
+    </div>
+    {% endif %}
+    {% if msg %}
+    <div class="alert alert-success" style="margin-bottom: 1rem; padding: 1rem; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 8px;">
+        {{ msg }}
+    </div>
+    {% endif %}
+
+    <!-- Navigation / Header -->
+    <div style="margin-bottom: 1.5rem;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <a href="/admin/schools/{{ school._id }}/id-card-progress" style="text-decoration: none; color: var(--brand-primary); font-size: 0.85rem; font-weight: 600;">
+                ← Back to {{ school.name }}
+            </a>
+            <span style="color: #94a3b8;">/</span>
+            <span style="color: #64748b; font-size: 0.85rem;">Upload Cards & Roster</span>
+        </div>
+        <h1 style="font-size: 2.2rem; font-weight: 800; color: #111; margin: 0;">Upload ID Cards & Student Data</h1>
+        <p style="color: #64748b; font-size: 0.95rem; margin: 4px 0 0 0;">Upload class-wise ID card images and student roster spreadsheet for <strong>{{ school.name }}</strong> ({{ school.school_code }}).</p>
+    </div>
+
+    <!-- Info Callout -->
+    <div class="info-callout">
+        <strong>💡 Smart Upload & Auto-Filtering:</strong>
+        <ul style="margin: 0.5rem 0 0 0; padding-left: 1.25rem;">
+            <li>You can select your entire school or class folder directly from your computer.</li>
+            <li>Subfolder names (e.g., <code>Class 1</code>, <code>Class 5</code>, <code>Std 10</code>) are automatically mapped to classes.</li>
+            <li>Any non-image files (such as PDFs, Word documents, or system files) in the folders are <strong>automatically filtered out and ignored</strong>.</li>
+            <li>Uploaded student spreadsheets (Excel / CSV) automatically map student GR numbers, names, and contact details to the ID cards.</li>
+        </ul>
+    </div>
+
+    <div class="upload-card">
+        <form id="uploadForm" action="/admin/schools/{{ school._id }}/upload-cards" method="POST" enctype="multipart/form-data">
+            
+            <!-- Section 1: ID Card Photos Folder -->
+            <div style="margin-bottom: 2rem;">
+                <label style="display: block; font-size: 1.05rem; font-weight: 700; color: #0f172a; margin-bottom: 0.35rem;">
+                    1. ID Card Image Folders / Files <span style="color: #ef4444;">*</span>
+                </label>
+                <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 0.75rem;">
+                    Select the folders containing class-wise ID card photos (JPEG, JPG, PNG, WEBP).
+                </p>
+
+                <div class="drop-zone" id="folderDropZone" onclick="document.getElementById('folderInput').click()">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📁</div>
+                    <div style="font-size: 1.05rem; font-weight: 700; color: #1e293b;">Click to Select Class Folders</div>
+                    <p style="font-size: 0.85rem; color: #64748b; margin: 4px 0 0 0;">or click below to choose individual files</p>
+                    <div id="folderSelectedStats" style="margin-top: 1rem; display: none;">
+                        <span class="file-badge" id="imageCountBadge" style="background: #dcfce7; color: #166534;">0 Images Selected</span>
+                        <span class="file-badge" id="ignoredCountBadge" style="background: #fee2e2; color: #991b1b; display: none;">0 Non-images Ignored</span>
+                    </div>
+                </div>
+
+                <input type="file" id="folderInput" name="files" webkitdirectory directory multiple style="display: none;" onchange="handleFolderSelected(this)">
+                
+                <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.5rem;">
+                    <span style="font-size: 0.8rem; color: #64748b;">Or choose individual files:</span>
+                    <button type="button" onclick="document.getElementById('individualFilesInput').click()" style="background: none; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; cursor: pointer; color: #475569;">
+                        Choose Multiple Files
+                    </button>
+                    <input type="file" id="individualFilesInput" multiple accept="image/*" style="display: none;" onchange="handleFilesSelected(this)">
+                </div>
+            </div>
+
+            <!-- Section 2: Student Roster Spreadsheet (Optional) -->
+            <div style="margin-bottom: 2rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
+                <label style="display: block; font-size: 1.05rem; font-weight: 700; color: #0f172a; margin-bottom: 0.35rem;">
+                    2. Student Roster Spreadsheet <span style="font-size: 0.85rem; font-weight: 400; color: #64748b;">(Optional Excel or CSV)</span>
+                </label>
+                <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 0.75rem;">
+                    Upload the student list with Name, GR Number, Class, Father Name, Contact, etc. If omitted, card records will be created from filenames.
+                </p>
+
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <input type="file" id="excelInput" name="excel_file" accept=".xlsx,.xls,.csv" style="padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; flex: 1;">
+                </div>
+            </div>
+
+            <!-- Section 3: Default Class (Optional Fallback) -->
+            <div style="margin-bottom: 2rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
+                <label for="default_class" style="display: block; font-size: 1.05rem; font-weight: 700; color: #0f172a; margin-bottom: 0.35rem;">
+                    3. Default Class Name <span style="font-size: 0.85rem; font-weight: 400; color: #64748b;">(Fallback if not in subfolder)</span>
+                </label>
+                <input type="text" id="default_class" name="default_class" placeholder="e.g. Class 1" style="width: 100%; max-width: 320px; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem;">
+            </div>
+
+            <!-- Progress status during submission -->
+            <div id="uploadProgressSection" style="display: none; margin-bottom: 1.5rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600; color: #1e293b; margin-bottom: 6px;">
+                    <span id="uploadProgressLabel">Uploading and processing files...</span>
+                    <span id="uploadProgressPercent">0%</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden;">
+                    <div id="uploadProgressBar" style="width: 0%; height: 100%; background: var(--brand-primary); transition: width 0.2s ease;"></div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
+                <a href="/admin/schools/{{ school._id }}/id-card-progress" class="btn-secondary" style="padding: 0.75rem 1.5rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.95rem; font-weight: 600; text-decoration: none; color: #475569;">
+                    Cancel
+                </a>
+                <button type="submit" id="submitBtn" class="btn-primary" style="padding: 0.75rem 2rem; border-radius: 8px; background: var(--brand-primary); color: #fff; border: none; font-size: 0.95rem; font-weight: 700; cursor: pointer;">
+                    Start Upload & Indexing
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let selectedFiles = [];
+
+function handleFolderSelected(input) {
+    if (!input.files || input.files.length === 0) return;
+    processFileList(input.files);
+}
+
+function handleFilesSelected(input) {
+    if (!input.files || input.files.length === 0) return;
+    processFileList(input.files);
+}
+
+function processFileList(files) {
+    selectedFiles = Array.from(files);
+    let imageExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    let imageCount = 0;
+    let ignoredCount = 0;
+
+    for (let f of selectedFiles) {
+        let name = f.name.toLowerCase();
+        let isImg = imageExts.some(ext => name.endsWith(ext));
+        if (isImg) {
+            imageCount++;
+        } else {
+            ignoredCount++;
+        }
+    }
+
+    const statsContainer = document.getElementById('folderSelectedStats');
+    const imageBadge = document.getElementById('imageCountBadge');
+    const ignoredBadge = document.getElementById('ignoredCountBadge');
+
+    statsContainer.style.display = 'flex';
+    statsContainer.style.gap = '8px';
+    statsContainer.style.justifyContent = 'center';
+
+    imageBadge.textContent = `${imageCount} Image(s) Ready to Upload`;
+    imageBadge.style.display = 'inline-flex';
+
+    if (ignoredCount > 0) {
+        ignoredBadge.textContent = `${ignoredCount} Non-image(s) will be ignored`;
+        ignoredBadge.style.display = 'inline-flex';
+    } else {
+        ignoredBadge.style.display = 'none';
+    }
+}
+
+// Intercept form submit to send relative paths and show progress
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    if (selectedFiles.length === 0) {
+        alert('Please select ID card photo folders or files to upload.');
+        e.preventDefault();
+        return;
+    }
+
+    e.preventDefault();
+
+    const form = e.target;
+    const formData = new FormData();
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.6';
+    submitBtn.textContent = 'Uploading...';
+
+    const progressSection = document.getElementById('uploadProgressSection');
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressPercent = document.getElementById('uploadProgressPercent');
+    const progressLabel = document.getElementById('uploadProgressLabel');
+
+    progressSection.style.display = 'block';
+
+    // Append files with relative path if available
+    for (let i = 0; i < selectedFiles.length; i++) {
+        let file = selectedFiles[i];
+        let relPath = file.webkitRelativePath || file.name;
+        formData.append('files', file, relPath);
+        formData.append('file_paths', relPath);
+    }
+
+    // Append Excel file if selected
+    const excelInput = document.getElementById('excelInput');
+    if (excelInput.files && excelInput.files.length > 0) {
+        formData.append('excel_file', excelInput.files[0]);
+    }
+
+    // Default class
+    const defaultClass = document.getElementById('default_class').value;
+    if (defaultClass) {
+        formData.append('default_class', defaultClass);
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', form.action, true);
+
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            progressBar.style.width = percent + '%';
+            progressPercent.textContent = percent + '%';
+            if (percent >= 100) {
+                progressLabel.textContent = 'Processing and indexing records on server...';
+            }
+        }
+    };
+
+    xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 400) {
+            // Success, navigate to target or follow redirect
+            if (xhr.responseURL) {
+                window.location.href = xhr.responseURL;
+            } else {
+                window.location.href = `/admin/schools/{{ school._id }}/id-card-progress?msg=ID+Cards+and+roster+uploaded+successfully`;
+            }
+        } else {
+            alert('Upload failed: ' + (xhr.responseText || xhr.statusText));
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.textContent = 'Start Upload & Indexing';
+            progressSection.style.display = 'none';
+        }
+    };
+
+    xhr.onerror = function() {
+        alert('Network error occurred during upload.');
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.textContent = 'Start Upload & Indexing';
+        progressSection.style.display = 'none';
+    };
+
+    xhr.send(formData);
+});
+</script>
+{% endblock %}

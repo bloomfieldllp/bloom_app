@@ -60,6 +60,9 @@
             <p style="color: #64748b; font-size: 0.95rem; margin: 4px 0 0 0;">{{ school.name }} ({{ school.school_code }})</p>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="/admin/schools/{{ school._id }}/upload-cards" class="btn-primary" style="padding: 0.6rem 1.1rem; border-radius: 8px; background: var(--brand-primary); color: #fff; font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+                ⬆ Upload Cards & Roster
+            </a>
             <a href="/admin/schools/{{ school._id }}/id-card-config" class="btn-secondary" style="padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; text-decoration: none; color: #334155;">
                 ⚙ Configure Fields
             </a>
