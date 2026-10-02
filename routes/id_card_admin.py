@@ -12,6 +12,7 @@ from database import get_db
 from utils import get_templates
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(RoleChecker(["bloom_admin"]))])
+templates = get_templates()
 import logging
 
 logger = logging.getLogger("app.id_card_admin")
