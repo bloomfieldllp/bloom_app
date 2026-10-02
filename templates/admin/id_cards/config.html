@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}ID Card Field Configuration - {{ school.name }} - Bloom Admin{% endblock %}
+
+{% block head %}
+<style>
+.config-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem 0;
+}
+.field-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 1.25rem;
+}
+.field-item {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: grab;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.field-item.dragging {
+    opacity: 0.5;
+    background: #f8fafc;
+    border-color: var(--brand-primary);
+}
+.field-drag-handle {
+    color: #94a3b8;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+}
+.field-title {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.95rem;
+}
+.field-type-tag {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 500;
+    margin-left: 8px;
+}
+.custom-tag {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+.order-btn {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    border-radius: 6px;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+.order-btn:hover {
+    background: #f1f5f9;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="config-container">
+    {% if error %}
+    <div class="alert alert-error" style="margin-bottom: 1rem; padding: 1rem; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 8px;">
+        {{ error }}
+    </div>
+    {% endif %}
+    {% if msg %}
+    <div class="alert alert-success" style="margin-bottom: 1rem; padding: 1rem; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 8px;">
+        {{ msg }}
+    </div>
+    {% endif %}
+
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <a href="/admin/schools/directory" style="text-decoration: none; color: var(--brand-primary); font-size: 0.85rem; font-weight: 600;">
+                    ← Back to Schools
+                </a>
+            </div>
+            <h1 style="font-size: 2rem; font-weight: 800; color: #111; margin: 0;">ID Card Fields</h1>
+            <p style="color: #64748b; font-size: 0.95rem; margin: 4px 0 0 0;">{{ school.name }} ({{ school.school_code }})</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <a href="/admin/schools/{{ school._id }}/correction-window" class="btn-secondary" style="padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; text-decoration: none; color: #334155;">
+                Correction Window →
+            </a>
+            <a href="/admin/schools/{{ school._id }}/id-card-progress" class="btn-secondary" style="padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; text-decoration: none; color: #334155;">
+                View Progress →
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Config Card -->
+    <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 16px; padding: 1.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.2rem; font-weight: 700; color: #0f172a;">Configured ID Card Fields</h3>
+                <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: #64748b;">
+                    Select active fields and arrange their display order for the school edit panel.
+                </p>
+            </div>
+            <button type="button" class="btn-secondary" onclick="openAddCustomFieldModal()" style="padding: 0.5rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; cursor: pointer;">
+                + Add Custom Field
+            </button>
+        </div>
+
+        <form id="fieldsConfigForm" method="POST" action="/admin/schools/{{ school._id }}/id-card-config">
+            <input type="hidden" name="fields_json" id="fields_json_input">
+
+            <div class="field-list" id="sortableFieldList">
+                {% for f in fields %}
+                <div class="field-item" data-key="{{ f.key }}" data-type="{{ f.type }}" data-predefined="{{ 'true' if f.is_predefined else 'false' }}" draggable="true">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span class="field-drag-handle">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                        </span>
+                        
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" class="field-checkbox" data-key="{{ f.key }}" {% if f.enabled %}checked{% endif %} style="width: 18px; height: 18px;">
+                            <span class="field-title">{{ f.label }}</span>
+                        </label>
+
+                        <span class="field-type-tag {% if not f.is_predefined %}custom-tag{% endif %}">
+                            {{ f.type }} {% if not f.is_predefined %}· Custom{% endif %}
+                        </span>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <button type="button" class="order-btn" onclick="moveFieldUp(this)">▲</button>
+                        <button type="button" class="order-btn" onclick="moveFieldDown(this)">▼</button>
+                        {% if not f.is_predefined %}
+                        <button type="button" class="order-btn" onclick="removeCustomField(this)" style="color: #dc2626; margin-left: 6px;">✕</button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div style="margin-top: 1.75rem; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="saveFieldsConfiguration()" class="btn-primary-dark" style="padding: 0.75rem 1.5rem; border-radius: 10px; background: #0f172a; color: #fff; font-weight: 600; border: none; cursor: pointer;">
+                    Save Field Configuration
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Add Custom Field -->
+<div id="customFieldModal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 999;">
+    <div style="background: #fff; border-radius: 16px; width: 100%; max-width: 440px; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+        <h3 style="margin: 0 0 1rem 0; font-size: 1.25rem; font-weight: 700; color: #0f172a;">Add Custom ID Card Field</h3>
+        
+        <div style="margin-bottom: 1rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Field Name / Label</label>
+            <input type="text" id="new_field_label" placeholder="e.g. Student UID, House, Bus Route" class="form-input" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box;">
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Field Type</label>
+            <select id="new_field_type" class="form-input" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; background: #fff;">
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="date">Date</option>
+            </select>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" onclick="closeAddCustomFieldModal()" style="padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer;">Cancel</button>
+            <button type="button" onclick="confirmAddCustomField()" style="padding: 0.6rem 1.2rem; border-radius: 8px; background: #0f172a; color: #fff; font-weight: 600; border: none; cursor: pointer;">Add Field</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Drag & Drop Sorting
+    const sortableList = document.getElementById('sortableFieldList');
+    let draggedItem = null;
+
+    sortableList.addEventListener('dragstart', (e) => {
+        draggedItem = e.target.closest('.field-item');
+        if (draggedItem) {
+            draggedItem.classList.add('dragging');
+        }
+    });
+
+    sortableList.addEventListener('dragend', (e) => {
+        if (draggedItem) {
+            draggedItem.classList.remove('dragging');
+            draggedItem = null;
+        }
+    });
+
+    sortableList.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const afterElement = getDragAfterElement(sortableList, e.clientY);
+        if (afterElement == null) {
+            sortableList.appendChild(draggedItem);
+        } else {
+            sortableList.insertBefore(draggedItem, afterElement);
+        }
+    });
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.field-item:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function moveFieldUp(btn) {
+        const item = btn.closest('.field-item');
+        const prev = item.previousElementSibling;
+        if (prev) {
+            sortableList.insertBefore(item, prev);
+        }
+    }
+
+    function moveFieldDown(btn) {
+        const item = btn.closest('.field-item');
+        const next = item.nextElementSibling;
+        if (next) {
+            sortableList.insertBefore(next, item);
+        }
+    }
+
+    function openAddCustomFieldModal() {
+        document.getElementById('new_field_label').value = '';
+        document.getElementById('customFieldModal').style.display = 'flex';
+    }
+
+    function closeAddCustomFieldModal() {
+        document.getElementById('customFieldModal').style.display = 'none';
+    }
+
+    function confirmAddCustomField() {
+        const label = document.getElementById('new_field_label').value.trim();
+        const type = document.getElementById('new_field_type').value;
+        if (!label) return;
+
+        const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        
+        // Create element
+        const item = document.createElement('div');
+        item.className = 'field-item';
+        item.draggable = true;
+        item.setAttribute('data-key', key);
+        item.setAttribute('data-type', type);
+        item.setAttribute('data-predefined', 'false');
+        
+        item.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span class="field-drag-handle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                </span>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" class="field-checkbox" data-key="${key}" checked style="width: 18px; height: 18px;">
+                    <span class="field-title">${label}</span>
+                </label>
+                <span class="field-type-tag custom-tag">${type} · Custom</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <button type="button" class="order-btn" onclick="moveFieldUp(this)">▲</button>
+                <button type="button" class="order-btn" onclick="moveFieldDown(this)">▼</button>
+                <button type="button" class="order-btn" onclick="removeCustomField(this)" style="color: #dc2626; margin-left: 6px;">✕</button>
+            </div>
+        `;
+        
+        sortableList.appendChild(item);
+        closeAddCustomFieldModal();
+    }
+
+    function removeCustomField(btn) {
+        const item = btn.closest('.field-item');
+        if (item) item.remove();
+    }
+
+    function saveFieldsConfiguration() {
+        const items = sortableList.querySelectorAll('.field-item');
+        const fields = [];
+
+        items.forEach((item, index) => {
+            const key = item.getAttribute('data-key');
+            const type = item.getAttribute('data-type') || 'text';
+            const isPredefined = item.getAttribute('data-predefined') === 'true';
+            const label = item.querySelector('.field-title').textContent.trim();
+            const isEnabled = item.querySelector('.field-checkbox').checked;
+
+            fields.push({
+                key: key,
+                label: label,
+                type: type,
+                enabled: isEnabled,
+                order: index + 1,
+                is_predefined: isPredefined
+            });
+        });
+
+        document.getElementById('fields_json_input').value = JSON.stringify(fields);
+        document.getElementById('fieldsConfigForm').submit();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}ID Card Management - Bloom Admin{% endblock %}
+
+{% block head %}
+<style>
+.school-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+}
+.school-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.school-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+    border-color: var(--brand-primary);
+}
+.badge-active { background: #dcfce7; color: #166534; }
+.badge-expired { background: #fee2e2; color: #991b1b; }
+.badge-not-started { background: #eff6ff; color: #1e40af; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto; padding: 1rem 0;">
+    {% if error %}
+    <div class="alert alert-error" style="margin-bottom: 1rem; padding: 1rem; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 8px;">
+        {{ error }}
+    </div>
+    {% endif %}
+    {% if msg %}
+    <div class="alert alert-success" style="margin-bottom: 1rem; padding: 1rem; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 8px;">
+        {{ msg }}
+    </div>
+    {% endif %}
+
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Administration</span>
+            <h1 style="font-size: 2.2rem; font-weight: 800; color: #111; margin: 0.25rem 0 0 0;">ID Card Verification & Correction</h1>
+            <p style="color: #64748b; font-size: 0.95rem; margin: 4px 0 0 0;">Configure school fields, correction windows, and monitor verification status.</p>
+        </div>
+    </div>
+
+    <!-- School Cards Grid -->
+    <div class="school-card-grid">
+        {% for item in school_stats %}
+        {% set s = item.school %}
+        {% set prog = item.progress %}
+        <div class="school-card">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.3rem; font-weight: 800; color: #0f172a;">{{ s.name }}</h3>
+                        <p style="margin: 2px 0 0 0; color: #64748b; font-size: 0.85rem;">Code: <strong>{{ s.school_code }}</strong></p>
+                    </div>
+                    <span class="badge {% if prog.correction_window.status == 'ACTIVE' %}badge-active{% elif prog.correction_window.status == 'EXPIRED' %}badge-expired{% else %}badge-not-started{% endif %}" style="padding: 3px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700;">
+                        {{ prog.correction_window.status.replace('_', ' ').title() }}
+                    </span>
+                </div>
+
+                <!-- Stats summary -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 1.25rem 0; background: #f8fafc; padding: 0.75rem; border-radius: 10px; text-align: center;">
+                    <div>
+                        <span style="font-size: 0.75rem; color: #64748b; display: block;">Total</span>
+                        <strong style="font-size: 1.1rem; color: #0f172a;">{{ prog.total_cards }}</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.75rem; color: #64748b; display: block;">Verified</span>
+                        <strong style="font-size: 1.1rem; color: #16a34a;">{{ prog.verified_cards }}</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.75rem; color: #64748b; display: block;">Corrections</span>
+                        <strong style="font-size: 1.1rem; color: #dc2626;">{{ prog.correction_cards }}</strong>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div style="margin-bottom: 1.25rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">
+                        <span>Progress</span>
+                        <strong style="color: #0f172a;">{{ prog.percent_verified }}%</strong>
+                    </div>
+                    <div style="width: 100%; height: 6px; background: #f1f5f9; border-radius: 999px; overflow: hidden;">
+                        <div style="width: {{ prog.percent_verified }}%; height: 100%; background: #16a34a;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                <a href="/admin/schools/{{ s._id }}/id-card-config" class="btn-secondary" style="padding: 0.5rem; text-align: center; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: #334155;">
+                    ⚙ Fields
+                </a>
+                <a href="/admin/schools/{{ s._id }}/correction-window" class="btn-secondary" style="padding: 0.5rem; text-align: center; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: #334155;">
+                    🕒 Window
+                </a>
+                <a href="/admin/schools/{{ s._id }}/id-card-progress" class="btn-secondary" style="grid-column: 1 / -1; padding: 0.6rem; text-align: center; border-radius: 8px; background: #0f172a; color: #fff; font-size: 0.88rem; font-weight: 600; text-decoration: none;">
+                    View Progress & Corrections →
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

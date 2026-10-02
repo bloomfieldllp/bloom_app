@@ -68,7 +68,17 @@ async def login(
     )
     
 
-    redirect_resp = RedirectResponse(url="/loader", status_code=303)
+    role = user.get("role")
+    if role == "bloom_admin":
+        target_url = "/admin"
+    elif role == "school_admin":
+        target_url = "/school"
+    elif role == "bloom_operator":
+        target_url = "/operator"
+    else:
+        target_url = "/loader"
+
+    redirect_resp = RedirectResponse(url=target_url, status_code=303)
     redirect_resp.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=session_id,

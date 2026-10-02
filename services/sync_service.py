@@ -8,6 +8,19 @@ from services.local_db import LocalDB
 
 logger = logging.getLogger("app.sync_service")
 
+def parse_iso_timestamp(ts_val: Any) -> Optional[datetime]:
+    if not ts_val:
+        return None
+    if isinstance(ts_val, datetime):
+        return ts_val if ts_val.tzinfo else ts_val.replace(tzinfo=timezone.utc)
+    if isinstance(ts_val, str):
+        try:
+            dt = datetime.fromisoformat(ts_val.replace("Z", "+00:00"))
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+    return None
+
 class SyncService:
     _sync_task: Optional[asyncio.Task] = None
     _state: str = "IDLE"  # IDLE, CONNECTING, UPLOADING, DOWNLOADING, SYNCED, RETRYING, ERROR
@@ -208,7 +221,7 @@ class SyncService:
             LocalDB.save_project(p)
             cls._completed_downloads += 1
             
-        # Apply students and student photos with Local Priority checks
+        # Apply students and student photos with Timestamp-based LWW (Latest Timestamp Wins) Conflict Resolution
         conn = LocalDB.get_connection()
         try:
             for st in students:
@@ -216,13 +229,22 @@ class SyncService:
                 row = conn.execute("SELECT COUNT(*) FROM pending_operations WHERE entity_id = ? AND sync_status = 'PENDING'", (student_id,)).fetchone()
                 has_pending = row[0] > 0 if row else False
                 
-                if has_pending:
-                    # LOCAL PRIORITY RULE: Preserve local photographed state and filenames
-                    local_stu = LocalDB.get_student(student_id)
-                    if local_stu:
-                        st["photo_status"] = local_stu["photo_status"]
-                        st["photo_filename"] = local_stu["photo_filename"]
-                        st["photo_path"] = local_stu["photo_path"]
+                local_stu = LocalDB.get_student(student_id)
+                if local_stu:
+                    local_ts = parse_iso_timestamp(local_stu.get("updated_at") or local_stu.get("local_updated_at"))
+                    server_ts = parse_iso_timestamp(st.get("updated_at"))
+                    
+                    # LATEST TIMESTAMP WINS CONFLICT RESOLUTION:
+                    # If local record is strictly newer than server record, preserve local version and fields
+                    if local_ts and server_ts and local_ts > server_ts:
+                        if has_pending or local_stu.get("photo_status") == "captured":
+                            for k in ["name", "standard", "division", "roll_number", "phone", "address", "photo_status", "photo_filename", "photo_path"]:
+                                if k in local_stu:
+                                    st[k] = local_stu[k]
+                    elif has_pending:
+                        st["photo_status"] = local_stu.get("photo_status", st.get("photo_status"))
+                        st["photo_filename"] = local_stu.get("photo_filename", st.get("photo_filename"))
+                        st["photo_path"] = local_stu.get("photo_path", st.get("photo_path"))
                 
                 LocalDB.save_student(st)
                 cls._completed_downloads += 1

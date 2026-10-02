@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}ID Card Verification - {{ school.name }} - Bloom{% endblock %}
+
+{% block head %}
+<style>
+.verification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.window-banner {
+    padding: 0.85rem 1.25rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+.window-active {
+    background-color: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+}
+.window-expired {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+.window-not-started {
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+}
+.class-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+}
+.class-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+}
+.class-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+    border-color: var(--brand-primary);
+}
+.progress-bar-bg {
+    width: 100%;
+    height: 8px;
+    background-color: #f1f5f9;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 0.75rem 0;
+}
+.progress-bar-fill {
+    height: 100%;
+    background-color: var(--success);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.badge-verified { background: #dcfce7; color: #166534; }
+.badge-pending { background: #fef3c7; color: #92400e; }
+.badge-correction { background: #fee2e2; color: #991b1b; }
+.sync-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+.sync-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.sync-dot-success { background: #16a34a; }
+.sync-dot-warning { background: #d97706; }
+.sync-dot-danger { background: #dc2626; }
+.sync-dot-muted { background: #9ca3af; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto; padding: 1rem 0;">
+    
+    {% if error %}
+    <div class="alert alert-error" style="margin-bottom: 1rem; padding: 1rem; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 8px;">
+        {{ error }}
+    </div>
+    {% endif %}
+    {% if msg %}
+    <div class="alert alert-success" style="margin-bottom: 1rem; padding: 1rem; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 8px;">
+        {{ msg }}
+    </div>
+    {% endif %}
+
+    <!-- Top Header -->
+    <div class="verification-header">
+        <div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.25rem;">
+                <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">School Verification Portal</span>
+                <span id="global-sync-badge" class="sync-status-badge">
+                    <span class="sync-dot sync-dot-success"></span> Synced
+                </span>
+            </div>
+            <h1 style="color: #111; font-weight: 800; font-size: 2.2rem; letter-spacing: -0.03em; margin: 0;">ID Card Verification</h1>
+            <p style="color: #666; font-size: 1rem; margin: 0.25rem 0 0 0;">{{ school.name }} ({{ school.school_code }})</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <a href="/school/verification/export" class="btn-secondary" style="display: flex; align-items: center; gap: 6px; padding: 0.6rem 1.2rem; border-radius: 10px; text-decoration: none; font-size: 0.9rem; font-weight: 600; border: 1px solid var(--border-color); background: #fff; color: #333;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                Export Corrections (.xlsx)
+            </a>
+        </div>
+    </div>
+
+    <!-- Correction Window Alert Banner -->
+    <div class="window-banner {% if correction_window.status == 'ACTIVE' %}window-active{% elif correction_window.status == 'EXPIRED' %}window-expired{% else %}window-not-started{% endif %}">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div>
+                <strong>Correction Window:</strong> {{ correction_window.message }}
+            </div>
+        </div>
+        <div>
+            <span class="badge {% if correction_window.status == 'ACTIVE' %}badge-verified{% elif correction_window.status == 'EXPIRED' %}badge-correction{% else %}badge-pending{% endif %}">
+                Status: {{ correction_window.status.replace('_', ' ').title() }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Overall Statistics Row -->
+    <div class="stat-card-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+        <div class="stat-box" style="background: #fff; padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border-color);">
+            <span class="stat-box-label" style="font-size: 0.85rem; color: #666; font-weight: 500;">Total ID Cards</span>
+            <span class="stat-box-value" style="font-size: 1.8rem; font-weight: 800; display: block; margin-top: 4px;">{{ progress.total_cards }}</span>
+        </div>
+        <div class="stat-box" style="background: #fff; padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border-color);">
+            <span class="stat-box-label" style="font-size: 0.85rem; color: #666; font-weight: 500;">Verified</span>
+            <span class="stat-box-value" style="font-size: 1.8rem; font-weight: 800; color: #16a34a; display: block; margin-top: 4px;">{{ progress.verified_cards }}</span>
+        </div>
+        <div class="stat-box" style="background: #fff; padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border-color);">
+            <span class="stat-box-label" style="font-size: 0.85rem; color: #666; font-weight: 500;">Correction Required</span>
+            <span class="stat-box-value" style="font-size: 1.8rem; font-weight: 800; color: #dc2626; display: block; margin-top: 4px;">{{ progress.correction_cards }}</span>
+        </div>
+        <div class="stat-box" style="background: #fff; padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border-color);">
+            <span class="stat-box-label" style="font-size: 0.85rem; color: #666; font-weight: 500;">Pending Review</span>
+            <span class="stat-box-value" style="font-size: 1.8rem; font-weight: 800; color: #d97706; display: block; margin-top: 4px;">{{ progress.pending_cards }}</span>
+        </div>
+    </div>
+
+    <!-- Class List Section -->
+    <div style="margin-top: 1rem;">
+        <h2 style="font-size: 1.3rem; font-weight: 700; color: #111; margin-bottom: 0.5rem;">Classes</h2>
+        
+        {% if classes %}
+        <div class="class-grid">
+            {% for c in classes %}
+            <a href="/school/verification/{{ c.class_name }}" class="class-card">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700;">{{ c.class_name }}</h3>
+                        {% if c.is_complete %}
+                        <span class="badge badge-verified">✓ Complete</span>
+                        {% elif c.correction_required > 0 %}
+                        <span class="badge badge-correction">{{ c.correction_required }} Correction</span>
+                        {% else %}
+                        <span class="badge badge-pending">{{ c.pending }} Pending</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" style="width: {{ (c.verified / c.total * 100) if c.total > 0 else 0 }}%;"></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #f1f5f9; font-size: 0.88rem; color: #555;">
+                    <div>
+                        <strong style="color: #111;">{{ c.verified }}</strong> / {{ c.total }} Verified
+                    </div>
+                    <div style="color: var(--brand-primary); font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                        Open Class →
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="background: #fff; padding: 3rem; text-align: center; border-radius: 16px; border: 1px solid var(--border-color); color: #666;">
+            <p style="font-size: 1.1rem; margin-bottom: 1rem;">No classes or student records found for this school.</p>
+            <a href="/school/import" class="btn-primary-dark" style="display: inline-block; padding: 0.6rem 1.2rem; text-decoration: none; border-radius: 8px;">Upload Student Excel</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/id_card_sync.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const badgeEl = document.getElementById('global-sync-badge');
+        if (badgeEl && window.idCardSync) {
+            window.idCardSync.setFeedbackElement(badgeEl);
+        }
+    });
+</script>
+{% endblock %}

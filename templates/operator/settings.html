@@ -24,13 +24,19 @@
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);">Incoming Folder (Watcher Path)</label>
                     <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem; margin-top: 0;">This is the folder where your DSLR/camera tethering software saves new photos immediately.</p>
-                    <input type="text" id="incoming-folder-input" class="form-control" placeholder="e.g. E:/SchoolPhotos/Incoming/" value="{{ project.incoming_folder or '' }}" required>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="incoming-folder-input" class="form-control" placeholder="e.g. /Users/mac/SchoolPhotos/Incoming or E:/SchoolPhotos/Incoming/" value="{{ project.incoming_folder or '' }}" required style="flex: 1;">
+                        <button type="button" class="btn btn-secondary" onclick="browseFolder('incoming-folder-input')">📁 Browse...</button>
+                    </div>
                 </div>
                 
                 <div class="form-group" style="margin-bottom: 1.5rem;">
                     <label style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);">Final Storage Folder</label>
-                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem; margin-top: 0;">This is the persistent folder (like a Pen Drive or SD Card) where assigned photos are copied.</p>
-                    <input type="text" id="final-storage-input" class="form-control" placeholder="e.g. E:/SchoolPhotos/" value="{{ project.final_storage_folder or '' }}" required>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem; margin-top: 0;">This is the persistent folder (like a Pen Drive, SD Card, or Local Folder) where assigned photos are copied.</p>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="final-storage-input" class="form-control" placeholder="e.g. /Users/mac/SchoolPhotos/Final or E:/SchoolPhotos/" value="{{ project.final_storage_folder or '' }}" required style="flex: 1;">
+                        <button type="button" class="btn btn-secondary" onclick="browseFolder('final-storage-input')">📁 Browse...</button>
+                    </div>
                 </div>
                 
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Save Configuration</button>
@@ -117,6 +123,18 @@
         } catch(err) {
             console.error(err);
             alert('Failed to save directory configuration.');
+        }
+    }
+
+    async function browseFolder(inputId) {
+        try {
+            const res = await fetch('/operator/utils/select-folder', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success' && data.path) {
+                document.getElementById(inputId).value = data.path;
+            }
+        } catch(e) {
+            console.error('Folder selection failed:', e);
         }
     }
 </script>

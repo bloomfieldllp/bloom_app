@@ -17,11 +17,31 @@ _indexes_initialized = False
 def get_db():
     global client, db, is_mock
     if db is None:
-        logger.info("Attempting to connect to real MongoDB instance...")
-        client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=5000, socketTimeoutMS=5000)
-        db = client[settings.MONGODB_DATABASE]
-        is_mock = False
-        logger.info("Successfully connected to real MongoDB instance.")
+        if settings.IS_LOCAL_OPERATOR:
+            try:
+                client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=2000, socketTimeoutMS=2000)
+                client.admin.command('ping')
+                db = client[settings.MONGODB_DATABASE]
+                is_mock = False
+                logger.info("Successfully connected to real MongoDB instance.")
+            except Exception as e:
+                logger.warning(f"Offline or MongoDB unavailable ({e}). Initializing mock database for local operator.")
+                client = mongomock.MongoClient()
+                db = client[settings.MONGODB_DATABASE]
+                is_mock = True
+                seed_mock_data(db)
+        else:
+            try:
+                client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=5000, socketTimeoutMS=5000)
+                db = client[settings.MONGODB_DATABASE]
+                is_mock = False
+                logger.info("Successfully connected to real MongoDB instance.")
+            except Exception as e:
+                logger.warning(f"Failed to connect to real MongoDB instance: {e}. Falling back to mongomock.")
+                client = mongomock.MongoClient()
+                db = client[settings.MONGODB_DATABASE]
+                is_mock = True
+                seed_mock_data(db)
     return db
 
 def seed_mock_data(database):

@@ -134,5 +134,30 @@ def test_full_offline_sync_lifecycle(tmp_path):
     gr_set = set(s["gr"] for s in local_students_after)
     assert "GR127" in gr_set
 
+def test_offline_project_get_and_settings(tmp_path):
+    from services.project_service import ProjectService
+    from config import settings
+    
+    db_path = str(tmp_path / "test_offline_proj.db")
+    LocalDB.DB_PATH = db_path
+    LocalDB.init_db()
+    
+    proj_id = "test_project_uuid_123"
+    LocalDB.save_project({
+        "_id": proj_id,
+        "school_id": "school_123",
+        "name": "Test Offline Project",
+        "academic_year": "2026-27",
+        "assigned_operator_id": "op_123",
+        "status": "in_progress"
+    })
+    
+    with patch.object(settings, "IS_LOCAL_OPERATOR", True):
+        proj = ProjectService.get_project(proj_id)
+        assert proj is not None
+        assert proj["_id"] == proj_id
+        assert proj["id"] == proj_id
+        assert proj["school_id"] == "school_123"
+
 if __name__ == "__main__":
     pytest.main(["-v", "tests/test_full_offline_sync_lifecycle.py"])

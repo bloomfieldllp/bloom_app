@@ -176,26 +176,53 @@ class ProjectService:
 
     @staticmethod
     def get_project(project_id: str, school_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        from config import settings
+        if settings.IS_LOCAL_OPERATOR:
+            try:
+                from services.local_db import LocalDB
+                p = LocalDB.get_project(project_id)
+                if p:
+                    if "_id" not in p:
+                        p["_id"] = str(p.get("id"))
+                    if "id" not in p:
+                        p["id"] = str(p.get("_id"))
+                    p["school_id"] = str(p.get("school_id", ""))
+                    return p
+            except Exception:
+                pass
+
         db = get_db()
         from bson.errors import InvalidId
         from bson import ObjectId
         
-        if not ObjectId.is_valid(project_id):
-            return None
-            
-        query = {"_id": ObjectId(project_id)}
-        if school_id:
-            query["school_id"] = school_id
+        if ObjectId.is_valid(project_id):
+            query = {"_id": ObjectId(project_id)}
+            if school_id:
+                query["school_id"] = school_id
+                
+            try:
+                project = db.projects.find_one(query)
+                if project:
+                    project["_id"] = str(project["_id"])
+                    project["id"] = str(project["_id"])
+                    project["school_id"] = str(project["school_id"])
+                    return project
+            except Exception:
+                pass
             
         try:
-            project = db.projects.find_one(query)
-            if project:
-                project["_id"] = str(project["_id"])
-                project["school_id"] = str(project["school_id"])
-                return project
+            from services.local_db import LocalDB
+            p = LocalDB.get_project(project_id)
+            if p:
+                if "_id" not in p:
+                    p["_id"] = str(p.get("id"))
+                if "id" not in p:
+                    p["id"] = str(p.get("_id"))
+                p["school_id"] = str(p.get("school_id", ""))
+                return p
         except Exception:
             pass
-            
+
         return None
 
     @staticmethod

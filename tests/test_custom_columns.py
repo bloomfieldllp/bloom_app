@@ -5,7 +5,7 @@ from services.local_db import LocalDB
 from routes.operator import get_student_export_row
 from database import get_db
 
-def test_custom_columns_import_sync_and_export(mock_db):
+def test_custom_columns_import_sync_and_export(mock_db, tmp_path):
     import pandas as pd
     import io
     df = pd.DataFrame([
@@ -38,6 +38,7 @@ def test_custom_columns_import_sync_and_export(mock_db):
     assert student_record["custom_fields"]["address"] == "123 Main St"
     # 2. Local SQLite DB serialization/deserialization verification
     # Setup SQLite test DB
+    LocalDB.DB_PATH = str(tmp_path / "test_custom.db")
     LocalDB.init_db()
     
     # Save the parsed student record

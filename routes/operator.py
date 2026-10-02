@@ -223,8 +223,16 @@ async def view_session(
             
         school = LocalDB.get_school(project["school_id"])
         if not school:
-            raise HTTPException(status_code=404, detail="School not found")
-        school["_id"] = school["id"]
+            school = {
+                "id": project["school_id"],
+                "_id": project["school_id"],
+                "name": project.get("name", "School").split(" - ")[0],
+                "school_code": "",
+                "location_link": "",
+                "status": project.get("status", "active")
+            }
+        else:
+            school["_id"] = school["id"]
             
         students = LocalDB.list_students(project_id)
         for s in students:
@@ -259,13 +267,33 @@ async def view_session(
     else:
         db = get_db()
         
-        project = await asyncio.to_thread(db.projects.find_one, {"_id": ObjectId(project_id)})
+        project = None
+        if ObjectId.is_valid(project_id):
+            project = await asyncio.to_thread(db.projects.find_one, {"_id": ObjectId(project_id)})
+        if not project:
+            project = await asyncio.to_thread(db.projects.find_one, {"_id": project_id})
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
             
-        school = await asyncio.to_thread(db.schools.find_one, {"_id": ObjectId(project["school_id"])})
+        school = None
+        sid = project.get("school_id")
+        if sid:
+            if ObjectId.is_valid(sid):
+                school = await asyncio.to_thread(db.schools.find_one, {"_id": ObjectId(sid)})
+            if not school:
+                school = await asyncio.to_thread(db.schools.find_one, {"_id": sid})
+                
         if not school:
-            raise HTTPException(status_code=404, detail="School not found")
+            school = {
+                "_id": str(sid or "unknown"),
+                "id": str(sid or "unknown"),
+                "name": project.get("name", "School").split(" - ")[0],
+                "school_code": "",
+                "location_link": "",
+                "status": project.get("status", "active")
+            }
+        else:
+            school["_id"] = str(school["_id"])
             
         # Fetch all students in this project (projecting out raw_data to optimize payload and DB throughput)
         projection = {
@@ -355,9 +383,27 @@ async def project_settings(
     user = Depends(RoleChecker(["bloom_operator"]))
 ):
     project = ProjectService.get_project(project_id)
-    if not project or project.get("assigned_operator_id") != str(user["id"]):
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    assigned_op = str(project.get("assigned_operator_id") or "")
+    current_op = str(user["id"])
+    if not settings.IS_LOCAL_OPERATOR and assigned_op and assigned_op != current_op:
         raise HTTPException(status_code=403, detail="Unauthorized")
-    school = LocalDB.get_school(str(project["school_id"]))
+
+    school_id = str(project.get("school_id") or "")
+    school = LocalDB.get_school(school_id)
+    if not school:
+        school = {
+            "id": school_id,
+            "_id": school_id,
+            "name": project.get("name", "School").split(" - ")[0],
+            "school_code": "",
+            "location_link": "",
+            "status": project.get("status", "active")
+        }
+    else:
+        school["_id"] = str(school.get("_id") or school.get("id"))
     
     return templates.TemplateResponse(request=request, name="operator/settings.html", context={
         "user": user,
@@ -732,35 +778,78 @@ def get_student_export_row(s: Dict[str, Any], photo: Optional[Dict[str, Any]], a
     if not isinstance(raw, dict):
         raw = {}
         
+    custom_fields = s.get("custom_fields")
+    if not isinstance(custom_fields, dict):
+        custom_fields = {}
+
+    def get_latest_val(key_name: str, raw_val: Any) -> Any:
+        k_lower = key_name.lower().strip()
+        if k_lower in ["gr", "gr no", "gr_no", "gr number", "gr_number", "student id", "student_id"]:
+            return s.get("gr") or raw_val or ""
+        elif "name" in k_lower and "father" not in k_lower and "mother" not in k_lower and "parent" not in k_lower and "school" not in k_lower:
+            return s.get("name") or raw_val or ""
+        elif k_lower in ["class", "standard", "std", "grade", "class_name"]:
+            return get_student_standard(s) or raw_val or ""
+        elif k_lower in ["section", "division", "div", "sec"]:
+            return get_student_division(s) or raw_val or ""
+        elif "roll" in k_lower:
+            return s.get("roll_number") or raw_val or ""
+        elif "dob" in k_lower or "birth" in k_lower:
+            return s.get("date_of_birth") or raw_val or ""
+        elif "address" in k_lower:
+            return s.get("address") or raw_val or ""
+        elif "phone" in k_lower or "mobile" in k_lower or "contact" in k_lower:
+            return s.get("phone") or raw_val or ""
+        return raw_val if raw_val is not None else ""
+
+    # Populate all uploaded raw columns
     for k in all_raw_keys:
-        if k in raw:
-            val = raw[k]
-            row_data[k] = val if val is not None else ""
-        else:
-            # Fallback to standard fields if not in raw_data
-            k_lower = k.lower()
-            if "id" in k_lower or "gr" in k_lower:
-                row_data[k] = s.get("gr", "")
-            elif "name" in k_lower:
-                row_data[k] = s.get("name", "")
-            elif "class" in k_lower or "std" in k_lower or "grade" in k_lower:
-                row_data[k] = get_student_standard(s)
-            elif "section" in k_lower or "div" in k_lower:
-                row_data[k] = get_student_division(s)
-            elif "roll" in k_lower:
-                row_data[k] = s.get("roll_number") or ""
-            else:
-                row_data[k] = ""
-                
+        raw_val = raw.get(k, "")
+        row_data[k] = get_latest_val(k, raw_val)
+
+    # Ensure core standard columns exist if all_raw_keys was customized
+    core_mappings = [
+        ("GR Number", s.get("gr", "")),
+        ("Student Name", s.get("name", "")),
+        ("Standard", get_student_standard(s)),
+        ("Division", get_student_division(s)),
+        ("Roll Number", s.get("roll_number", "")),
+        ("Date of Birth", s.get("date_of_birth", "")),
+        ("Address", s.get("address", "")),
+        ("Phone Number", s.get("phone", ""))
+    ]
+    for col_title, col_val in core_mappings:
+        if not any(col_title.lower() in k.lower() for k in row_data.keys()):
+            if col_val:
+                row_data[col_title] = col_val
+
+    # Append custom fields
+    for ck, cv in custom_fields.items():
+        if ck not in row_data:
+            row_data[ck] = cv if cv is not None else ""
+
     # Append photo details
-    status_label = "Completed" if s.get("photo_status") == "captured" else s.get("photo_status", "not_captured").replace("_", " ").title()
+    photo_status = s.get("photo_status", "not_captured")
+    status_label = "Completed" if photo_status == "captured" else photo_status.replace("_", " ").title()
+    
     captured_time = ""
     if photo and photo.get("captured_at"):
         c_at = photo["captured_at"]
         captured_time = c_at if isinstance(c_at, str) else c_at.strftime('%Y-%m-%d %H:%M:%S')
-        
-    row_data["Photo Filename"] = photo["final_filename"] if photo else "—"
-    row_data["Photo Path"] = photo["relative_path"] if photo else "—"
+
+    # Filename: where photo is missing leave blank ("")
+    photo_fn = ""
+    if photo_status == "captured":
+        photo_fn = (photo.get("final_filename") if photo else None) or s.get("photo_filename") or ""
+        if photo_fn == "—":
+            photo_fn = ""
+            
+    photo_rel = ""
+    if photo_status == "captured":
+        photo_rel = (photo.get("relative_path") if photo else None) or s.get("photo_path") or ""
+
+    row_data["Photo Filename"] = photo_fn
+    row_data["Photo Path"] = photo_rel
     row_data["Photo Status"] = status_label
     row_data["Captured At"] = captured_time
     return row_data
@@ -902,6 +991,44 @@ async def trigger_sync_action(user = Depends(RoleChecker(["bloom_operator"]))):
     return {"status": "success"}
 
 
+@router.post("/utils/select-folder")
+@router.get("/utils/select-folder")
+async def select_folder_dialog(user = Depends(RoleChecker(["bloom_operator"]))):
+    import platform
+    # 1. Try pywebview if window is open
+    try:
+        import webview
+        if webview.windows and len(webview.windows) > 0:
+            res = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
+            if res and len(res) > 0:
+                return {"status": "success", "path": res[0]}
+    except Exception:
+        pass
+        
+    # 2. Fallback for macOS (AppleScript native folder picker dialog)
+    if platform.system() == "Darwin":
+        try:
+            import subprocess
+            cmd = 'osascript -e \'POSIX path of (choose folder with prompt "Select Folder")\''
+            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if proc.returncode == 0 and proc.stdout.strip():
+                return {"status": "success", "path": proc.stdout.strip().rstrip('/')}
+        except Exception:
+            pass
+
+    # 3. Fallback for Windows (PowerShell FolderBrowserDialog)
+    if platform.system() == "Windows":
+        try:
+            import subprocess
+            cmd = 'powershell -Command "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; if($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){ $f.SelectedPath }"'
+            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if proc.returncode == 0 and proc.stdout.strip():
+                return {"status": "success", "path": proc.stdout.strip()}
+        except Exception:
+            pass
+
+    return {"status": "cancelled", "path": ""}
+
 @router.post("/projects/{project_id}/students/add")
 async def add_student(
     request: Request,
@@ -916,20 +1043,29 @@ async def add_student(
     roll_number = form_data.get("roll_number", "")
     date_of_birth = form_data.get("date_of_birth", "")
     address = form_data.get("address", "")
+    phone = form_data.get("phone", "")
     overwrite = str(form_data.get("overwrite", "")).lower() in ["true", "1", "yes"]
     
     custom_fields = {k.replace("custom_", ""): v for k, v in form_data.items() if k.startswith("custom_")}
     
-    project = ProjectService.get_project(project_id)
-    if not project: raise HTTPException(status_code=404, detail="Project not found")
-    school_id = str(project["school_id"])
+    # LocalDB-first project lookup for offline reliability
+    project = None
+    if settings.IS_LOCAL_OPERATOR:
+        project = LocalDB.get_project(project_id)
+        if project:
+            project["_id"] = project.get("id", project_id)
+    if not project:
+        project = ProjectService.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    school_id = str(project.get("school_id", ""))
         
     from services.student_service import StudentService
     try:
         StudentService.create_student(
             school_id=school_id, project_id=project_id, gr=gr, name=name,
             standard=standard, division=division, roll_number=roll_number,
-            date_of_birth=date_of_birth, address=address, custom_fields=custom_fields,
+            date_of_birth=date_of_birth, address=address, phone=phone, custom_fields=custom_fields,
             overwrite=overwrite
         )
         return RedirectResponse(url=f"/operator/projects/{project_id}/session?msg=Student+saved+successfully", status_code=303)
@@ -950,6 +1086,7 @@ async def edit_student(
     roll_number = form_data.get("roll_number", "")
     date_of_birth = form_data.get("date_of_birth", "")
     address = form_data.get("address", "")
+    phone = form_data.get("phone", "")
     
     custom_fields = {k.replace("custom_", ""): v for k, v in form_data.items() if k.startswith("custom_")}
     
@@ -958,7 +1095,7 @@ async def edit_student(
         StudentService.update_student(
             student_id=student_id, name=name,
             standard=standard, division=division, roll_number=roll_number,
-            date_of_birth=date_of_birth, address=address, custom_fields=custom_fields
+            date_of_birth=date_of_birth, address=address, phone=phone, custom_fields=custom_fields
         )
         return RedirectResponse(url=f"/operator/projects/{project_id}/session?msg=Student+updated+successfully", status_code=303)
     except ValueError as e:
@@ -966,9 +1103,20 @@ async def edit_student(
 
 @router.get("/schools/{school_id}/fields")
 async def get_school_fields(request: Request, school_id: str, user = Depends(RoleChecker(["bloom_operator"]))):
-    from database import get_db
-    db = get_db()
+    if settings.IS_LOCAL_OPERATOR:
+        try:
+            from services.local_db import LocalDB
+            school = LocalDB.get_school(school_id)
+            if school and school.get("field_definitions"):
+                import json
+                fields = school["field_definitions"]
+                return json.loads(fields) if isinstance(fields, str) else fields
+        except Exception:
+            pass
+
     try:
+        from database import get_db
+        db = get_db()
         from bson import ObjectId
         school = db.schools.find_one({"_id": ObjectId(school_id)})
         if school and "field_definitions" in school:
@@ -976,17 +1124,17 @@ async def get_school_fields(request: Request, school_id: str, user = Depends(Rol
     except Exception:
         pass
         
-    # If offline, get from local SQLite
-    if getattr(request.app.state, "is_local_operator", False) or True: # fallback
-        try:
-            from services.local_db import LocalDB
-            conn = LocalDB.get_connection()
-            row = conn.execute("SELECT field_definitions FROM schools WHERE id = ?", (school_id,)).fetchone()
-            if row and row[0]:
-                import json
-                return json.loads(row[0])
-        except Exception:
-            pass
+    try:
+        from services.local_db import LocalDB
+        conn = LocalDB.get_connection()
+        row = conn.execute("SELECT field_definitions FROM schools WHERE id = ?", (school_id,)).fetchone()
+        if row and row[0]:
+            import json
+            return json.loads(row[0])
+    except Exception:
+        pass
+        
+    return []
             
     return []
 

@@ -306,6 +306,34 @@ async def api_push(req: PushRequest):
                                 "updated_at": now
                             }}
                         )
+                elif op_type == "STUDENT_CREATED":
+                    doc = payload.copy()
+                    sid = doc.get("id") or entity_id
+                    if ObjectId.is_valid(sid):
+                        doc["_id"] = ObjectId(sid)
+                    else:
+                        doc["_id"] = sid
+                    doc["updated_at"] = now
+                    db.students.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+                elif op_type == "STUDENT_UPDATED":
+                    update_data = payload.copy()
+                    sid = update_data.pop("student_id", entity_id)
+                    target_id = ObjectId(sid) if ObjectId.is_valid(sid) else sid
+                    
+                    # LATEST TIMESTAMP WINS: Skip overwriting if server version is strictly newer
+                    existing_st = db.students.find_one({"_id": target_id})
+                    if existing_st and "updated_at" in existing_st and "updated_at" in update_data:
+                        from services.sync_service import parse_iso_timestamp
+                        server_ts = parse_iso_timestamp(existing_st["updated_at"])
+                        client_ts = parse_iso_timestamp(update_data["updated_at"])
+                        if server_ts and client_ts and server_ts > client_ts:
+                            logger.info(f"Sync Push: Server record for {sid} is newer than client update. Preserving server record.")
+                            db.processed_operations.insert_one({"_id": op_id, "processed_at": now})
+                            acknowledged_ids.append(op_id)
+                            continue
+
+                    update_data["updated_at"] = now
+                    db.students.update_one({"_id": target_id}, {"$set": update_data})
                 
                 # Mark as processed
                 db.processed_operations.insert_one({

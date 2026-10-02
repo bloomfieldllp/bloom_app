@@ -22,15 +22,15 @@ const CLIPS = [
 
 /* Timings in milliseconds */
 const T = {
-    TYPE_SPEED:         58,     // ms per character
-    NORMAL_HOLD:      1600,     // hold after normal quote finishes typing
-    A_TO_B_DURATION:  1900,     // duration of spatial shrink + image crossfade
-    RECTANGLE_HOLD:    300,     // hold small rectangle before collapsing
-    COLLAPSE_DURATION: 450,     // duration to collapse rectangle to thin vertical line
-    STATE_B_DELAY:     350,     // delay between collapse and typing cursor appearance
-    IMAGE_HOLD:       1400,     // hold after image-filled quote finishes typing
-    B_TO_A_DURATION:  2400,     // duration of growth + image texture crossfade
-    NEXT_A_SETTLE:     100,     // delay after B→A resolves before next normal quote typing
+    TYPE_SPEED:         15,     // ms per character
+    NORMAL_HOLD:       300,     // hold after normal quote finishes typing
+    A_TO_B_DURATION:   500,     // duration of spatial shrink + image crossfade
+    RECTANGLE_HOLD:    100,     // hold small rectangle before collapsing
+    COLLAPSE_DURATION: 150,     // duration to collapse rectangle to thin vertical line
+    STATE_B_DELAY:     100,     // delay between collapse and typing cursor appearance
+    IMAGE_HOLD:        300,     // hold after image-filled quote finishes typing
+    B_TO_A_DURATION:   600,     // duration of growth + image texture crossfade
+    NEXT_A_SETTLE:      50,     // delay after B→A resolves before next normal quote typing
 };
 
 const DOM = {
@@ -449,19 +449,25 @@ window.BloomLoader = BloomLoader;
 // Initialize state redirect mapping
 SM.redirectUrl = null;
 
-// Fetch user destination route in parallel to preloading
-const destPromise = fetch("/api/user/destination")
+// Fetch user destination route immediately
+fetch("/api/user/destination")
     .then(r => r.json())
     .then(d => {
         if (d && d.redirect_url) {
             SM.redirectUrl = d.redirect_url;
+            if (d.redirect_url !== "/login") {
+                // Instant redirect as soon as destination data is ready!
+                window.location.href = d.redirect_url;
+            }
         }
     })
     .catch(() => {
         SM.redirectUrl = null;
     });
 
-Promise.all([preloadAllImages(), destPromise]).then(() => {
-    // Start State A only after all images are loaded and destination is fetched
-    enterStateA();
+Promise.all([preloadAllImages()]).then(() => {
+    // If not redirected yet, enterStateA
+    if (!SM.redirectUrl || SM.redirectUrl === "/login") {
+        enterStateA();
+    }
 });

@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}ID Card Verification Progress - {{ school.name }} - Bloom Admin{% endblock %}
+
+{% block head %}
+<style>
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    text-align: left;
+}
+.custom-table th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 700;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.custom-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+}
+.custom-table tr:last-child td {
+    border-bottom: none;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto; padding: 1rem 0;">
+    {% if error %}
+    <div class="alert alert-error" style="margin-bottom: 1rem; padding: 1rem; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 8px;">
+        {{ error }}
+    </div>
+    {% endif %}
+    {% if msg %}
+    <div class="alert alert-success" style="margin-bottom: 1rem; padding: 1rem; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 8px;">
+        {{ msg }}
+    </div>
+    {% endif %}
+
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <a href="/admin/id-cards" style="text-decoration: none; color: var(--brand-primary); font-size: 0.85rem; font-weight: 600;">
+                    ← Back to All Schools
+                </a>
+            </div>
+            <h1 style="font-size: 2.2rem; font-weight: 800; color: #111; margin: 0;">Verification Progress</h1>
+            <p style="color: #64748b; font-size: 0.95rem; margin: 4px 0 0 0;">{{ school.name }} ({{ school.school_code }})</p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="/admin/schools/{{ school._id }}/id-card-config" class="btn-secondary" style="padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; text-decoration: none; color: #334155;">
+                ⚙ Configure Fields
+            </a>
+            <a href="/admin/schools/{{ school._id }}/correction-window" class="btn-secondary" style="padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; text-decoration: none; color: #334155;">
+                🕒 Correction Window
+            </a>
+            <form method="POST" action="/admin/schools/{{ school._id }}/id-cards/index-drive" style="display: inline;">
+                <button type="submit" style="padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; cursor: pointer; color: #334155;">
+                    🔄 Re-Index Storage
+                </button>
+            </form>
+            <a href="/admin/schools/{{ school._id }}/id-cards/export" class="btn-primary-dark" style="padding: 0.6rem 1.2rem; border-radius: 8px; background: #0f172a; color: #fff; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                Export Excel (.xlsx)
+            </a>
+        </div>
+    </div>
+
+    <!-- Stat Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+        <div style="background: #fff; padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border-color);">
+            <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Total Cards</span>
+            <span style="font-size: 1.8rem; font-weight: 800; display: block; margin-top: 4px; color: #0f172a;">{{ progress.total_cards }}</span>
+        </div>
+        <div style="background: #fff; padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border-color);">
+            <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Verified Cards</span>
+            <span style="font-size: 1.8rem; font-weight: 800; color: #16a34a; display: block; margin-top: 4px;">{{ progress.verified_cards }}</span>
+        </div>
+        <div style="background: #fff; padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border-color);">
+            <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Correction Required</span>
+            <span style="font-size: 1.8rem; font-weight: 800; color: #dc2626; display: block; margin-top: 4px;">{{ progress.correction_cards }}</span>
+        </div>
+        <div style="background: #fff; padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border-color);">
+            <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Pending Verification</span>
+            <span style="font-size: 1.8rem; font-weight: 800; color: #d97706; display: block; margin-top: 4px;">{{ progress.pending_cards }}</span>
+        </div>
+        <div style="background: #fff; padding: 1.25rem; border-radius: 16px; border: 1px solid var(--border-color);">
+            <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Correction Window</span>
+            <span style="font-size: 1.2rem; font-weight: 800; display: block; margin-top: 6px; color: {% if correction_window.status == 'ACTIVE' %}#16a34a{% elif correction_window.status == 'EXPIRED' %}#dc2626{% else %}#2563eb{% endif %};">
+                {{ correction_window.status.replace('_', ' ').title() }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Class-by-Class Table -->
+    <div style="margin-bottom: 2.5rem;">
+        <h2 style="font-size: 1.3rem; font-weight: 700; color: #0f172a; margin-bottom: 0.75rem;">Class-by-Class Breakdown</h2>
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Class</th>
+                        <th>Total Cards</th>
+                        <th>Verified</th>
+                        <th>Correction Required</th>
+                        <th>Pending</th>
+                        <th>Completion Progress</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in classes %}
+                    <tr>
+                        <td style="font-weight: 700;">{{ c.class_name }}</td>
+                        <td>{{ c.total }}</td>
+                        <td style="color: #16a34a; font-weight: 600;">{{ c.verified }}</td>
+                        <td style="color: #dc2626; font-weight: 600;">{{ c.correction_required }}</td>
+                        <td style="color: #d97706; font-weight: 600;">{{ c.pending }}</td>
+                        <td style="min-width: 140px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="flex: 1; height: 8px; background: #f1f5f9; border-radius: 999px; overflow: hidden;">
+                                    <div style="height: 100%; background: #16a34a; width: {{ (c.verified / c.total * 100) if c.total > 0 else 0 }}%;"></div>
+                                </div>
+                                <span style="font-size: 0.8rem; font-weight: 600;">{{ "%.0f"|format((c.verified / c.total * 100) if c.total > 0 else 0) }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Live Correction Log Table -->
+    <div style="margin-bottom: 2.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h2 style="font-size: 1.3rem; font-weight: 700; color: #0f172a; margin: 0;">Live Correction Log (Google Sheets Sync)</h2>
+            <span style="font-size: 0.85rem; color: #64748b;">{{ corrections|length }} corrections recorded</span>
+        </div>
+        
+        {% if corrections %}
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Class</th>
+                        <th>File Name</th>
+                        <th>Student Name</th>
+                        <th>GR</th>
+                        <th>Correction Type</th>
+                        <th>Photo Wrong</th>
+                        <th>Replacement Photo</th>
+                        <th>Last Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cor in corrections %}
+                    <tr>
+                        <td>{{ cor.class_name }}</td>
+                        <td><code>{{ cor.original_filename }}</code></td>
+                        <td style="font-weight: 600;">{{ cor.student_name }}</td>
+                        <td>{{ cor.gr }}</td>
+                        <td>
+                            <span style="font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: #fee2e2; color: #991b1b; font-weight: 600;">
+                                {{ cor.correction_type }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if cor.photo_wrong == 'Yes' %}
+                            <span style="color: #dc2626; font-weight: 700;">Yes</span>
+                            {% else %}
+                            <span style="color: #64748b;">No</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cor.replacement_photo_filename %}
+                            <span style="color: #16a34a; font-weight: 600;"><code>{{ cor.replacement_photo_filename }}</code></span>
+                            {% else %}
+                            <span style="color: #94a3b8;">None</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size: 0.8rem; color: #64748b;">{{ cor.last_updated[:19].replace('T', ' ') if cor.last_updated else 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="background: #fff; padding: 2rem; text-align: center; border-radius: 12px; border: 1px solid var(--border-color); color: #64748b;">
+            No corrections logged yet for this school.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Audit History Trail -->
+    {% if history %}
+    <div>
+        <h2 style="font-size: 1.3rem; font-weight: 700; color: #0f172a; margin-bottom: 0.75rem;">Correction Audit History</h2>
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Class</th>
+                        <th>File Stem</th>
+                        <th>Changed By</th>
+                        <th>Correction Type</th>
+                        <th>Photo Status</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in history %}
+                    <tr>
+                        <td>{{ h.class_name }}</td>
+                        <td><code>{{ h.file_stem }}</code></td>
+                        <td>{{ h.changed_by }}</td>
+                        <td>{{ h.correction_type }}</td>
+                        <td>{{ 'Photo Marked Wrong' if h.photo_wrong else 'Photo OK' }}</td>
+                        <td style="font-size: 0.8rem; color: #64748b;">{{ h.timestamp[:19].replace('T', ' ') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

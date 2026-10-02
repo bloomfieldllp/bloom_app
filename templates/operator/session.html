@@ -130,15 +130,15 @@
                 <span class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px; pointer-events: none; background: transparent; border: none; box-shadow: none;">
                     Folder: <span id="storage-status-indicator" class="storage-indicator" style="display: inline-flex; align-items: center; gap: 4px;"><span class="storage-dot storage-dot-unavailable"></span><span>Disconnected</span></span>
                 </span>
-                <a href="/operator/projects/{{ project._id }}/export/excel" class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+                <a href="/operator/projects/{{ project._id or project.id }}/export/excel" class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                     Excel
                 </a>
-                <a href="/operator/projects/{{ project._id }}/export/csv" class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+                <a href="/operator/projects/{{ project._id or project.id }}/export/csv" class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                     CSV
                 </a>
-                <form action="/operator/projects/{{ project._id }}/session/pause" method="POST" style="margin: 0;">
+                <form action="/operator/projects/{{ project._id or project.id }}/session/pause" method="POST" style="margin: 0;">
                     <button type="submit" class="btn btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.85rem;">
                         Pause Session
                     </button>
@@ -288,7 +288,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <button type="button" class="btn-secondary-light" onclick="event.stopPropagation(); openEditStudentModal('/operator/projects/{{ project._id }}/students/edit', {{s | tojson | safe}}, '/operator', '{{ project.school_id }}')" style="padding: 4px 8px; font-size: 0.75rem;">Edit</button>
+                                    <button type="button" class="btn-secondary-light" data-student="{{ s | tojson | forceescape }}" onclick="event.stopPropagation(); handleEditStudentClick(this, '/operator/projects/{{ project._id }}/students/edit', '/operator', '{{ project.school_id }}')" style="padding: 4px 8px; font-size: 0.75rem;">Edit</button>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -355,6 +355,19 @@
         pollSyncStatus();
         setInterval(pollSyncStatus, 3000);
     });
+    
+    async function browseFolder(inputId) {
+        try {
+            const res = await fetch('/operator/utils/select-folder', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success' && data.path) {
+                const el = document.getElementById(inputId);
+                if (el) el.value = data.path;
+            }
+        } catch(e) {
+            console.error('Folder selection failed:', e);
+        }
+    }
     
     // Save Configured folder paths
     async function saveStorageConfig(e) {

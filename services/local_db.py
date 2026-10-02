@@ -10,16 +10,39 @@ from config import settings
 logger = logging.getLogger("app.local_db")
 
 class LocalDB:
-    @staticmethod
-    def get_connection():
-        db_path = settings.SQLITE_DB_PATH
-        conn = sqlite3.connect(db_path)
+    @classmethod
+    def get_connection(cls):
+        db_path = getattr(cls, 'DB_PATH', None) or settings.SQLITE_DB_PATH
+        if db_path and db_path != ":memory:":
+            try:
+                dir_name = os.path.dirname(os.path.abspath(db_path))
+                if dir_name:
+                    os.makedirs(dir_name, exist_ok=True)
+            except Exception:
+                db_path = "bloom_local.db"
+        try:
+            conn = sqlite3.connect(db_path)
+        except Exception:
+            db_path = "bloom_local.db"
+            conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         # Enable foreign keys and concurrency protections
-        conn.execute("PRAGMA foreign_keys = ON;")
-        conn.execute("PRAGMA journal_mode = WAL;")
-        conn.execute("PRAGMA synchronous = NORMAL;")
-        conn.execute("PRAGMA busy_timeout = 5000;")
+        try:
+            conn.execute("PRAGMA foreign_keys = ON;")
+        except Exception:
+            pass
+        try:
+            conn.execute("PRAGMA journal_mode = WAL;")
+        except Exception:
+            pass
+        try:
+            conn.execute("PRAGMA synchronous = NORMAL;")
+        except Exception:
+            pass
+        try:
+            conn.execute("PRAGMA busy_timeout = 5000;")
+        except Exception:
+            pass
         return conn
 
     @classmethod
@@ -96,6 +119,10 @@ class LocalDB:
                     pass
                 try:
                     conn.execute("ALTER TABLE students ADD COLUMN address TEXT;")
+                except Exception:
+                    pass
+                try:
+                    conn.execute("ALTER TABLE students ADD COLUMN phone TEXT;")
                 except Exception:
                     pass
                 try:
@@ -417,8 +444,8 @@ class LocalDB:
         try:
             with conn:
                 conn.execute("""
-                    INSERT INTO students (id, name, gr, standard, division, roll_number, date_of_birth, address, school_id, project_id, photo_status, photo_filename, photo_path, updated_at, local_updated_at, raw_data, custom_fields)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO students (id, name, gr, standard, division, roll_number, date_of_birth, address, phone, school_id, project_id, photo_status, photo_filename, photo_path, updated_at, local_updated_at, raw_data, custom_fields)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         name=excluded.name,
                         gr=excluded.gr,
@@ -427,6 +454,7 @@ class LocalDB:
                         roll_number=excluded.roll_number,
                         date_of_birth=excluded.date_of_birth,
                         address=excluded.address,
+                        phone=excluded.phone,
                         school_id=excluded.school_id,
                         project_id=excluded.project_id,
                         photo_status=excluded.photo_status,
@@ -444,6 +472,7 @@ class LocalDB:
                     student.get("roll_number"),
                     student.get("date_of_birth"),
                     student.get("address"),
+                    student.get("phone"),
                     str(student.get("school_id") or ""),
                     str(student.get("project_id") or ""),
                     student.get("photo_status", "not_captured"),

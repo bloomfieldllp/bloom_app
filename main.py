@@ -1,4 +1,5 @@
 import os
+import uuid
 import logging
 from contextlib import asynccontextmanager
 import bson
@@ -28,7 +29,7 @@ from fastapi.templating import Jinja2Templates
 
 from config import settings
 from database import init_db, close_db
-from routes import auth, admin, school, operator, sync
+from routes import auth, admin, school, operator, sync, id_card_school, id_card_admin
 from dependencies import get_current_user
 
 # Setup logging
@@ -140,26 +141,46 @@ app.include_router(admin.router)
 app.include_router(school.router)
 app.include_router(operator.router)
 app.include_router(sync.router)
+app.include_router(id_card_school.router)
+app.include_router(id_card_admin.router)
 
 
 @app.get("/")
 async def root(request: Request):
     """
-    Root route: redirects to /loader if authenticated, else to /login
+    Root route: redirects directly to role dashboard if authenticated, else to /login
     """
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
-    return RedirectResponse(url="/loader", status_code=303)
+    role = user.get("role")
+    if role == "bloom_admin":
+        return RedirectResponse(url="/admin", status_code=303)
+    elif role == "school_admin":
+        return RedirectResponse(url="/school", status_code=303)
+    elif role == "bloom_operator":
+        return RedirectResponse(url="/operator", status_code=303)
+    return RedirectResponse(url="/login", status_code=303)
 
 @app.get("/loader")
 async def get_loader(request: Request):
     """
-    Renders loader screen if authenticated, else redirects to login page
+    Renders loader screen if authenticated, or redirects to dashboard if data is ready
     """
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
+        
+    # If data is ready, skip loader animation and redirect immediately
+    if request.query_params.get("force") != "1":
+        role = user.get("role")
+        if role == "bloom_admin":
+            return RedirectResponse(url="/admin", status_code=303)
+        elif role == "school_admin":
+            return RedirectResponse(url="/school", status_code=303)
+        elif role == "bloom_operator":
+            return RedirectResponse(url="/operator", status_code=303)
+            
     return templates.TemplateResponse(request=request, name="loader.html", context={})
 
 @app.get("/api/user/destination")
@@ -270,15 +291,18 @@ if __name__ == "__main__":
     
     # 1. Single Instance Check
     if not check_single_instance():
-        import ctypes
-        try:
-            ctypes.windll.user32.MessageBoxW(
-                0, 
-                "BLOOM Operator is already running on this machine.", 
-                "Application Already Active", 
-                0x00000010 | 0x00000000  # MB_ICONERROR | MB_OK
-            )
-        except Exception:
+        if platform.system() == "Windows":
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(
+                    0, 
+                    "BLOOM Operator is already running on this machine.", 
+                    "Application Already Active", 
+                    0x00000010 | 0x00000000  # MB_ICONERROR | MB_OK
+                )
+            except Exception:
+                print("ERROR: BLOOM Operator is already running.")
+        else:
             print("ERROR: BLOOM Operator is already running.")
         sys.exit(1)
         
@@ -300,20 +324,23 @@ if __name__ == "__main__":
     server_ready = wait_for_server(port)
     if not server_ready:
         logger.error("FastAPI server failed to start within timeout.")
-        import ctypes
-        try:
-            ctypes.windll.user32.MessageBoxW(
-                0, 
-                "Failed to initialize the local server. Please check the logs.", 
-                "Server Startup Error", 
-                0x00000010 | 0x00000000  # MB_ICONERROR | MB_OK
-            )
-        except Exception:
+        if platform.system() == "Windows":
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(
+                    0, 
+                    "Failed to initialize the local server. Please check the logs.", 
+                    "Server Startup Error", 
+                    0x00000010 | 0x00000000  # MB_ICONERROR | MB_OK
+                )
+            except Exception:
+                print("ERROR: FastAPI server failed to start.")
+        else:
             print("ERROR: FastAPI server failed to start.")
         sys.exit(1)
         
-    # 4. Native Desktop Window (WebView2)
-    run_desktop_window = getattr(sys, 'frozen', False) or os.environ.get("BLOOM_DESKTOP") == "true" or platform.system() == "Windows"
+    # 4. Native Desktop Window (WebView2 on Windows, Cocoa WebKit on macOS)
+    run_desktop_window = getattr(sys, 'frozen', False) or os.environ.get("BLOOM_DESKTOP") == "true" or platform.system() in ("Windows", "Darwin")
     
     if run_desktop_window:
         try:

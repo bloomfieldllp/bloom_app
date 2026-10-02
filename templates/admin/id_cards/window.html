@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Correction Window - {{ school.name }} - Bloom Admin{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px; margin: 0 auto; padding: 1rem 0;">
+    {% if error %}
+    <div class="alert alert-error" style="margin-bottom: 1rem; padding: 1rem; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 8px;">
+        {{ error }}
+    </div>
+    {% endif %}
+    {% if msg %}
+    <div class="alert alert-success" style="margin-bottom: 1rem; padding: 1rem; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 8px;">
+        {{ msg }}
+    </div>
+    {% endif %}
+
+    <!-- Header -->
+    <div style="margin-bottom: 1.5rem;">
+        <a href="/admin/schools/{{ school._id }}/id-card-config" style="text-decoration: none; color: var(--brand-primary); font-size: 0.85rem; font-weight: 600;">
+            ← Back to ID Card Config
+        </a>
+        <h1 style="font-size: 2rem; font-weight: 800; color: #111; margin: 0.25rem 0 0 0;">ID Card Correction Window</h1>
+        <p style="color: #64748b; font-size: 0.95rem; margin: 4px 0 0 0;">{{ school.name }} ({{ school.school_code }})</p>
+    </div>
+
+    <!-- Window Status Badge Box -->
+    <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-size: 0.85rem; font-weight: 600; color: #64748b; text-transform: uppercase;">Current Real-Time Status</span>
+                <div style="font-size: 1.3rem; font-weight: 800; margin-top: 4px; color: {% if correction_window.status == 'ACTIVE' %}#16a34a{% elif correction_window.status == 'EXPIRED' %}#dc2626{% else %}#2563eb{% endif %};">
+                    {{ correction_window.status.replace('_', ' ').title() }}
+                </div>
+            </div>
+            <span style="padding: 6px 12px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; background: {% if correction_window.status == 'ACTIVE' %}#dcfce7; color: #166534;{% elif correction_window.status == 'EXPIRED' %}#fee2e2; color: #991b1b;{% else %}#dbeafe; color: #1e40af;{% endif %}">
+                {{ correction_window.message }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Edit Window Form -->
+    <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 16px; padding: 1.75rem;">
+        <form method="POST" action="/admin/schools/{{ school._id }}/correction-window">
+            <div style="margin-bottom: 1.25rem;">
+                <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                    Start Date & Time (IST)
+                </label>
+                <input type="datetime-local" id="start_datetime" name="start_datetime" value="{{ start_val }}" class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 0.95rem; box-sizing: border-box;">
+                <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #64748b;">When school can begin editing records.</p>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                    End Date & Time (IST)
+                </label>
+                <input type="datetime-local" id="end_datetime" name="end_datetime" value="{{ end_val }}" class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 0.95rem; box-sizing: border-box;">
+                <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #64748b;">When correction period expires and editing is locked.</p>
+            </div>
+
+            <!-- Quick Extension Shortcuts -->
+            <div style="margin-bottom: 1.75rem; padding: 1rem; background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: #475569; display: block; margin-bottom: 8px;">Quick Adjust / Reopen</span>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" onclick="extendWindow(3)" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                        +3 Days
+                    </button>
+                    <button type="button" onclick="extendWindow(7)" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                        +1 Week
+                    </button>
+                    <button type="button" onclick="reopenWindowNow()" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #22c55e; background: #f0fdf4; color: #166534; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                        ⚡ Reopen Now (Next 7 Days)
+                    </button>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <a href="/admin/schools/{{ school._id }}/id-card-config" style="padding: 0.75rem 1.25rem; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; text-decoration: none; color: #334155; font-weight: 600;">
+                    Cancel
+                </a>
+                <button type="submit" class="btn-primary-dark" style="padding: 0.75rem 1.5rem; border-radius: 10px; background: #0f172a; color: #fff; font-weight: 600; border: none; cursor: pointer;">
+                    Save Correction Window
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function extendWindow(days) {
+        const endInput = document.getElementById('end_datetime');
+        let currentEnd = endInput.value ? new Date(endInput.value) : new Date();
+        if (isNaN(currentEnd.getTime()) || currentEnd < new Date()) {
+            currentEnd = new Date();
+        }
+        currentEnd.setDate(currentEnd.getDate() + days);
+        endInput.value = formatDateTimeLocal(currentEnd);
+    }
+
+    function reopenWindowNow() {
+        const startInput = document.getElementById('start_datetime');
+        const endInput = document.getElementById('end_datetime');
+        
+        const now = new Date();
+        const nextWeek = new Date();
+        nextWeek.setDate(now.getDate() + 7);
+
+        startInput.value = formatDateTimeLocal(now);
+        endInput.value = formatDateTimeLocal(nextWeek);
+    }
+
+    function formatDateTimeLocal(date) {
+        const pad = (n) => String(n).padStart(2, '0');
+        const year = date.getFullYear();
+        const month = pad(date.getMonth() + 1);
+        const day = pad(date.getDate());
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+</script>
+{% endblock %}

@@ -1,6 +1,7 @@
 import os
 import sys
 import platform
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 def get_default_sqlite_path() -> str:
@@ -15,6 +16,14 @@ def get_default_sqlite_path() -> str:
                 return os.path.join(dir_path, "bloom_local.db")
             except Exception:
                 pass
+    elif platform.system() == "Darwin":
+        home = os.path.expanduser("~")
+        dir_path = os.path.join(home, "Library", "Application Support", "BloomOperator")
+        try:
+            os.makedirs(dir_path, exist_ok=True)
+            return os.path.join(dir_path, "bloom_local.db")
+        except Exception:
+            pass
     return "bloom_local.db"
 
 def get_default_log_dir() -> str:
@@ -27,6 +36,14 @@ def get_default_log_dir() -> str:
                 return dir_path
             except Exception:
                 pass
+    elif platform.system() == "Darwin":
+        home = os.path.expanduser("~")
+        dir_path = os.path.join(home, "Library", "Application Support", "BloomOperator", "logs")
+        try:
+            os.makedirs(dir_path, exist_ok=True)
+            return dir_path
+        except Exception:
+            pass
     return "logs"
 
 class Settings(BaseSettings):
@@ -39,6 +56,9 @@ class Settings(BaseSettings):
     REMOTE_SERVER_URL: str = "https://bloom-app-orcin.vercel.app"  # Fallback target URL
     SQLITE_DB_PATH: str = get_default_sqlite_path()
     LOG_DIR: str = get_default_log_dir()
+    GOOGLE_DRIVE_MASTER_FOLDER_ID: Optional[str] = "1q1JKJSGE2DBqunn-hSHRAA_lfT3e5brC"
+    GOOGLE_CREDENTIALS_PATH: Optional[str] = "credentials/google-service-account.json"
+    GOOGLE_SERVICE_ACCOUNT_JSON: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

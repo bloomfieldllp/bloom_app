@@ -106,6 +106,7 @@ def test_local_priority_rule(setup_local_sqlite):
     school = {
         "id": "school1",
         "name": "Test School",
+        "school_code": "SCH001",
         "status": "active"
     }
     student = {

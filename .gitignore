@@ -30,3 +30,8 @@ Thumbs.db
 *.log
 local_photos/
 tmp/
+drive_storage/
+credentials/*.json
+.env
+.env.*
+

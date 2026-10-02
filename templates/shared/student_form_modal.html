@@ -53,10 +53,18 @@
                     </div>
                 </div>
 
-                <!-- Roll Number Field -->
-                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-                    <label for="roll_number" style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #5C5A56;">Roll Number</label>
-                    <input type="text" id="roll_number" name="roll_number" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #EBEAE4; font-size: 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <!-- Roll Number Field -->
+                    <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                        <label for="roll_number" style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #5C5A56;">Roll Number</label>
+                        <input type="text" id="roll_number" name="roll_number" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #EBEAE4; font-size: 1rem;">
+                    </div>
+                    
+                    <!-- Phone Field -->
+                    <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                        <label for="phone" style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #5C5A56;">Phone Number</label>
+                        <input type="text" id="phone" name="phone" placeholder="e.g. 9876543210" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #EBEAE4; font-size: 1rem;">
+                    </div>
                 </div>
                 
                 <!-- Dynamic Fields Container -->
@@ -172,6 +180,7 @@ function openAddStudentModal(actionUrl, apiBase, schoolId) {
     document.getElementById('name').value = '';
     document.getElementById('date_of_birth').value = '';
     document.getElementById('address').value = '';
+    document.getElementById('phone').value = '';
     document.getElementById('standard').value = '';
     document.getElementById('division').value = '';
     document.getElementById('roll_number').value = '';
@@ -182,6 +191,17 @@ function openAddStudentModal(actionUrl, apiBase, schoolId) {
     
     const modal = document.getElementById('student-modal');
     modal.style.display = 'flex';
+}
+
+function handleEditStudentClick(btn, actionUrl, apiBase, schoolId) {
+    try {
+        const raw = btn.getAttribute('data-student');
+        if (!raw) return;
+        const student = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        openEditStudentModal(actionUrl, student, apiBase, schoolId);
+    } catch (err) {
+        console.error('Failed to open edit student modal:', err);
+    }
 }
 
 function openEditStudentModal(actionUrl, student, apiBase, schoolId) {
@@ -199,6 +219,7 @@ function openEditStudentModal(actionUrl, student, apiBase, schoolId) {
     document.getElementById('name').value = student.name || '';
     document.getElementById('date_of_birth').value = student.date_of_birth || '';
     document.getElementById('address').value = student.address || '';
+    document.getElementById('phone').value = student.phone || '';
     document.getElementById('standard').value = student.standard || student.class_name || '';
     document.getElementById('division').value = student.division || student.section || '';
     document.getElementById('roll_number').value = student.roll_number || '';
