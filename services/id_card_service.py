@@ -773,130 +773,175 @@ class IdCardService:
         school_name = school.get("name", school_id)
         school_code = school.get("school_code", school_id)
 
-        # 1. Parse Excel / Google Sheet roster if provided
+    @staticmethod
+    def import_roster_spreadsheet(school_id: str, excel_file_bytes: bytes, default_class_name: Optional[str] = None) -> int:
+        """
+        Parses an uploaded Excel/CSV roster and upserts students into MongoDB.
+        """
+        db = get_db()
+        school = db.schools.find_one({"_id": ObjectId(school_id) if ObjectId.is_valid(school_id) else school_id})
+        school_name = school.get("name", school_id) if school else school_id
+
         students_imported_count = 0
-        if excel_file_bytes and len(excel_file_bytes) > 0:
-            try:
-                import pandas as pd
-                df = pd.read_excel(io.BytesIO(excel_file_bytes))
-                df.columns = [str(c).strip() for c in df.columns]
+        if not excel_file_bytes or len(excel_file_bytes) == 0:
+            return 0
+
+        try:
+            import pandas as pd
+            df = pd.read_excel(io.BytesIO(excel_file_bytes))
+            df.columns = [str(c).strip() for c in df.columns]
+            
+            # Standardize common column headers
+            col_map = {}
+            for col in df.columns:
+                c_low = col.lower().replace("_", " ").replace("-", " ").strip()
+                if c_low in ["name", "student name", "student_name", "candidate name"]:
+                    col_map["name"] = col
+                elif c_low in ["gr", "gr no", "gr_no", "grno", "admission no", "adm no", "roll no", "roll_no"]:
+                    col_map["gr"] = col
+                elif c_low in ["standard", "std", "class", "class name", "grade"]:
+                    col_map["standard"] = col
+                elif c_low in ["section", "sec", "div", "division"]:
+                    col_map["section"] = col
+                elif c_low in ["dob", "date of birth", "birth date"]:
+                    col_map["dob"] = col
+                elif c_low in ["father name", "father_name", "father's name", "parent name"]:
+                    col_map["father_name"] = col
+                elif c_low in ["mother name", "mother_name", "mother's name"]:
+                    col_map["mother_name"] = col
+                elif c_low in ["blood group", "blood_group", "bg", "blood"]:
+                    col_map["blood_group"] = col
+                elif c_low in ["mobile", "phone", "contact", "phone number", "mobile no"]:
+                    col_map["phone"] = col
+                elif c_low in ["address", "residential address"]:
+                    col_map["address"] = col
+                elif c_low in ["photo filename", "photo_filename", "filename", "file name", "file_name", "image", "photo"]:
+                    col_map["photo_filename"] = col
+
+            for _, row in df.iterrows():
+                name_val = str(row.get(col_map.get("name", ""), "")).strip()
+                gr_val = str(row.get(col_map.get("gr", ""), "")).strip()
+                std_val = str(row.get(col_map.get("standard", ""), default_class_name or "Class 1")).strip()
+                sec_val = str(row.get(col_map.get("section", ""), "")).strip()
+                photo_val = str(row.get(col_map.get("photo_filename", ""), "")).strip()
                 
-                # Standardize common column headers
-                col_map = {}
-                for col in df.columns:
-                    c_low = col.lower().replace("_", " ").replace("-", " ").strip()
-                    if c_low in ["name", "student name", "student_name", "candidate name"]:
-                        col_map["name"] = col
-                    elif c_low in ["gr", "gr no", "gr_no", "grno", "admission no", "adm no", "roll no", "roll_no"]:
-                        col_map["gr"] = col
-                    elif c_low in ["standard", "std", "class", "class name", "grade"]:
-                        col_map["standard"] = col
-                    elif c_low in ["section", "sec", "div", "division"]:
-                        col_map["section"] = col
-                    elif c_low in ["dob", "date of birth", "birth date"]:
-                        col_map["dob"] = col
-                    elif c_low in ["father name", "father_name", "father's name", "parent name"]:
-                        col_map["father_name"] = col
-                    elif c_low in ["mother name", "mother_name", "mother's name"]:
-                        col_map["mother_name"] = col
-                    elif c_low in ["blood group", "blood_group", "bg", "blood"]:
-                        col_map["blood_group"] = col
-                    elif c_low in ["mobile", "phone", "contact", "phone number", "mobile no"]:
-                        col_map["phone"] = col
-                    elif c_low in ["address", "residential address"]:
-                        col_map["address"] = col
-                    elif c_low in ["photo filename", "photo_filename", "filename", "file name", "file_name", "image", "photo"]:
-                        col_map["photo_filename"] = col
-
-                for _, row in df.iterrows():
-                    name_val = str(row.get(col_map.get("name", ""), "")).strip()
-                    gr_val = str(row.get(col_map.get("gr", ""), "")).strip()
-                    std_val = str(row.get(col_map.get("standard", ""), default_class_name or "Class 1")).strip()
-                    sec_val = str(row.get(col_map.get("section", ""), "")).strip()
-                    photo_val = str(row.get(col_map.get("photo_filename", ""), "")).strip()
+                if not name_val and not gr_val:
+                    continue
                     
-                    if not name_val and not gr_val:
-                        continue
-                        
-                    if not gr_val:
-                        gr_val = photo_val or f"STU_{uuid.uuid4().hex[:6]}"
-                    if not name_val:
-                        name_val = f"Student {gr_val}"
+                if not gr_val:
+                    gr_val = photo_val or f"STU_{uuid.uuid4().hex[:6]}"
+                if not name_val:
+                    name_val = f"Student {gr_val}"
 
-                    # Clean standard / class
-                    if not std_val or std_val.lower() == "nan":
-                        std_val = default_class_name or "Class 1"
+                # Clean standard / class
+                if not std_val or std_val.lower() == "nan":
+                    std_val = default_class_name or "Class 1"
 
-                    raw_record = {k: ("" if pd.isna(v) else str(v).strip()) for k, v in row.items()}
-                    
-                    # Update or insert student
-                    stu_doc = {
-                        "school_id": str(school_id),
-                        "name": name_val,
-                        "gr": gr_val,
-                        "standard": std_val,
-                        "class_name": std_val,
-                        "section": sec_val if sec_val != "nan" else "",
-                        "photo_filename": photo_val if photo_val != "nan" else f"{gr_val}.png",
-                        "raw_data": raw_record,
-                        "updated_at": datetime.now(timezone.utc).isoformat()
-                    }
-                    
-                    db.students.update_one(
-                        {"school_id": str(school_id), "gr": gr_val},
-                        {"$set": stu_doc},
-                        upsert=True
-                    )
-                    students_imported_count += 1
-                logger.info(f"Imported/updated {students_imported_count} students from Excel roster for school {school_name}")
-            except Exception as ee:
-                logger.error(f"Error parsing uploaded Excel roster: {ee}")
+                raw_record = {k: ("" if pd.isna(v) else str(v).strip()) for k, v in row.items()}
+                
+                # Update or insert student
+                stu_doc = {
+                    "school_id": str(school_id),
+                    "name": name_val,
+                    "gr": gr_val,
+                    "standard": std_val,
+                    "class_name": std_val,
+                    "section": sec_val if sec_val != "nan" else "",
+                    "photo_filename": photo_val if photo_val != "nan" else f"{gr_val}.png",
+                    "raw_data": raw_record,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                
+                db.students.update_one(
+                    {"school_id": str(school_id), "gr": gr_val},
+                    {"$set": stu_doc},
+                    upsert=True
+                )
+                students_imported_count += 1
+            logger.info(f"Imported/updated {students_imported_count} students from Excel roster for school {school_name}")
+        except Exception as ee:
+            logger.error(f"Error parsing uploaded Excel roster: {ee}")
+        return students_imported_count
+
+    @staticmethod
+    def save_single_card_image(
+        school_id: str,
+        filepath_or_name: str,
+        file_bytes: bytes,
+        default_class_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Saves a single ID-card photo into class folder and MongoDB, ignoring non-images.
+        """
+        IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+        clean_path = filepath_or_name.replace("\\", "/").strip()
+        parts = [p.strip() for p in clean_path.split("/") if p.strip()]
+        if not parts:
+            return {"ignored": True, "reason": "empty_path"}
+
+        fname = parts[-1]
+        _, ext = os.path.splitext(fname)
+        if ext.lower() not in IMAGE_EXTS:
+            return {"ignored": True, "filename": fname, "reason": "non_image"}
+
+        db = get_db()
+        school = db.schools.find_one({"_id": ObjectId(school_id) if ObjectId.is_valid(school_id) else school_id})
+        school_name = school.get("name", school_id) if school else school_id
+
+        if len(parts) >= 2:
+            class_name = parts[-2]
+        else:
+            class_name = default_class_name or "Class 1"
+
+        class_name = str(class_name).strip()
+
+        GoogleDriveService.save_id_card_image(
+            school_name_or_code=school_name,
+            class_name=class_name,
+            filename=fname,
+            file_bytes=file_bytes,
+            school_id=school_id
+        )
+
+        return {
+            "ignored": False,
+            "filename": fname,
+            "class_name": class_name,
+            "status": "saved"
+        }
+
+    @staticmethod
+    def import_and_upload_id_cards(
+        school_id: str,
+        files: List[Tuple[str, bytes]],
+        excel_file_bytes: Optional[bytes] = None,
+        excel_filename: Optional[str] = None,
+        default_class_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Processes batch uploads of ID card image folders and optional Excel/Sheet roster.
+        """
+        # 1. Parse Excel / Google Sheet roster if provided
+        students_imported_count = IdCardService.import_roster_spreadsheet(school_id, excel_file_bytes, default_class_name)
 
         # 2. Process card image files
-        IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
         uploaded_images_count = 0
         ignored_files_count = 0
         touched_classes = set()
 
         for filepath_or_name, file_bytes in files:
-            clean_path = filepath_or_name.replace("\\", "/").strip()
-            # If path starts with root folder, strip it
-            parts = [p.strip() for p in clean_path.split("/") if p.strip()]
-            
-            if not parts:
-                continue
-                
-            fname = parts[-1]
-            _, ext = os.path.splitext(fname)
-            
-            # Filter non-image files (PDFs, Excel in class folders, etc.)
-            if ext.lower() not in IMAGE_EXTS:
-                ignored_files_count += 1
-                logger.debug(f"Ignoring non-image file: {clean_path}")
-                continue
-
-            # Determine class name from path or default
-            if len(parts) >= 2:
-                # E.g. 'Class 5/ABC001.jpg' or 'School A/Class 5/ABC001.jpg'
-                if len(parts) >= 3 and (parts[0].lower() == school_name.lower() or parts[0].lower() == school_code.lower() or parts[0].lower() == "id card photos"):
-                    class_name = parts[-2]
-                else:
-                    class_name = parts[-2]
-            else:
-                class_name = default_class_name or "Class 1"
-
-            class_name = str(class_name).strip()
-            touched_classes.add(class_name)
-
-            # Save image
-            GoogleDriveService.save_id_card_image(
-                school_name_or_code=school_name,
-                class_name=class_name,
-                filename=fname,
+            res = IdCardService.save_single_card_image(
+                school_id=school_id,
+                filepath_or_name=filepath_or_name,
                 file_bytes=file_bytes,
-                school_id=school_id
+                default_class_name=default_class_name
             )
-            uploaded_images_count += 1
+            if res.get("ignored"):
+                ignored_files_count += 1
+            else:
+                uploaded_images_count += 1
+                if res.get("class_name"):
+                    touched_classes.add(res["class_name"])
 
         # 3. Auto-index all touched classes (and any classes from students)
         if not touched_classes:

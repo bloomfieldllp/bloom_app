@@ -46,6 +46,16 @@
     font-size: 0.9rem;
     line-height: 1.5;
 }
+.drive-callout {
+    background: #fefce8;
+    border-left: 4px solid #eab308;
+    padding: 1rem;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 1.5rem;
+    color: #854d0e;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
 </style>
 {% endblock %}
 
@@ -79,15 +89,27 @@
     <div class="info-callout">
         <strong>💡 Smart Upload & Auto-Filtering:</strong>
         <ul style="margin: 0.5rem 0 0 0; padding-left: 1.25rem;">
-            <li>You can select your entire school or class folder directly from your computer.</li>
+            <li>Select your class folders or multiple files. The system uploads them in optimized streams to support hundreds or thousands of photos.</li>
             <li>Subfolder names (e.g., <code>Class 1</code>, <code>Class 5</code>, <code>Std 10</code>) are automatically mapped to classes.</li>
             <li>Any non-image files (such as PDFs, Word documents, or system files) in the folders are <strong>automatically filtered out and ignored</strong>.</li>
             <li>Uploaded student spreadsheets (Excel / CSV) automatically map student GR numbers, names, and contact details to the ID cards.</li>
         </ul>
     </div>
 
+    <!-- Large 20GB Direct Sync Option -->
+    <div class="drive-callout">
+        <strong>📁 Massive Dataset Option (5 GB – 20+ GB):</strong>
+        <p style="margin: 4px 0 0 0;">
+            If you have very large collections (several GBs), you can also copy the folders directly into your Google Drive master folder:
+            <br>
+            <code>ID Card Photos / {{ school.name }} / {Class Name} /</code>
+            <br>
+            Then simply click <a href="/admin/schools/{{ school._id }}/id-card-progress" style="color: #854d0e; font-weight: 700; text-decoration: underline;">"🔄 Re-Index Storage"</a> on the progress page.
+        </p>
+    </div>
+
     <div class="upload-card">
-        <form id="uploadForm" action="/admin/schools/{{ school._id }}/upload-cards" method="POST" enctype="multipart/form-data">
+        <form id="uploadForm" onsubmit="return handleFormSubmit(event)">
             
             <!-- Section 1: ID Card Photos Folder -->
             <div style="margin-bottom: 2rem;">
@@ -108,7 +130,7 @@
                     </div>
                 </div>
 
-                <input type="file" id="folderInput" name="files" webkitdirectory directory multiple style="display: none;" onchange="handleFolderSelected(this)">
+                <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;" onchange="handleFolderSelected(this)">
                 
                 <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.5rem;">
                     <span style="font-size: 0.8rem; color: #64748b;">Or choose individual files:</span>
@@ -129,7 +151,7 @@
                 </p>
 
                 <div style="display: flex; align-items: center; gap: 1rem;">
-                    <input type="file" id="excelInput" name="excel_file" accept=".xlsx,.xls,.csv" style="padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; flex: 1;">
+                    <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; flex: 1;">
                 </div>
             </div>
 
@@ -142,14 +164,15 @@
             </div>
 
             <!-- Progress status during submission -->
-            <div id="uploadProgressSection" style="display: none; margin-bottom: 1.5rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600; color: #1e293b; margin-bottom: 6px;">
-                    <span id="uploadProgressLabel">Uploading and processing files...</span>
+            <div id="uploadProgressSection" style="display: none; margin-bottom: 1.5rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 700; color: #1e293b; margin-bottom: 8px;">
+                    <span id="uploadProgressLabel">Uploading files...</span>
                     <span id="uploadProgressPercent">0%</span>
                 </div>
-                <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden;">
+                <div style="width: 100%; height: 10px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin-bottom: 8px;">
                     <div id="uploadProgressBar" style="width: 0%; height: 100%; background: var(--brand-primary); transition: width 0.2s ease;"></div>
                 </div>
+                <div id="uploadSubStatus" style="font-size: 0.82rem; color: #64748b;">Preparing upload...</div>
             </div>
 
             <!-- Action Buttons -->
@@ -166,7 +189,8 @@
 </div>
 
 <script>
-let selectedFiles = [];
+let validImageFiles = [];
+const SCHOOL_ID = "{{ school._id }}";
 
 function handleFolderSelected(input) {
     if (!input.files || input.files.length === 0) return;
@@ -179,16 +203,16 @@ function handleFilesSelected(input) {
 }
 
 function processFileList(files) {
-    selectedFiles = Array.from(files);
-    let imageExts = ['.jpg', '.jpeg', '.png', '.webp'];
-    let imageCount = 0;
+    const allFiles = Array.from(files);
+    const imageExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    validImageFiles = [];
     let ignoredCount = 0;
 
-    for (let f of selectedFiles) {
+    for (let f of allFiles) {
         let name = f.name.toLowerCase();
         let isImg = imageExts.some(ext => name.endsWith(ext));
         if (isImg) {
-            imageCount++;
+            validImageFiles.push(f);
         } else {
             ignoredCount++;
         }
@@ -202,7 +226,7 @@ function processFileList(files) {
     statsContainer.style.gap = '8px';
     statsContainer.style.justifyContent = 'center';
 
-    imageBadge.textContent = `${imageCount} Image(s) Ready to Upload`;
+    imageBadge.textContent = `${validImageFiles.length} Image(s) Ready to Upload`;
     imageBadge.style.display = 'inline-flex';
 
     if (ignoredCount > 0) {
@@ -213,18 +237,17 @@ function processFileList(files) {
     }
 }
 
-// Intercept form submit to send relative paths and show progress
-document.getElementById('uploadForm').addEventListener('submit', function(e) {
-    if (selectedFiles.length === 0) {
-        alert('Please select ID card photo folders or files to upload.');
-        e.preventDefault();
-        return;
-    }
-
+// Chunked Streaming Upload Handler (Bypasses Vercel 4.5MB Payload limit)
+async function handleFormSubmit(e) {
     e.preventDefault();
 
-    const form = e.target;
-    const formData = new FormData();
+    const excelInput = document.getElementById('excelInput');
+    const hasExcel = excelInput.files && excelInput.files.length > 0;
+
+    if (validImageFiles.length === 0 && !hasExcel) {
+        alert('Please select either ID card photo folders/files or a student roster spreadsheet.');
+        return false;
+    }
 
     const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
@@ -235,69 +258,112 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
     const progressBar = document.getElementById('uploadProgressBar');
     const progressPercent = document.getElementById('uploadProgressPercent');
     const progressLabel = document.getElementById('uploadProgressLabel');
+    const progressSub = document.getElementById('uploadSubStatus');
 
     progressSection.style.display = 'block';
 
-    // Append files with relative path if available
-    for (let i = 0; i < selectedFiles.length; i++) {
-        let file = selectedFiles[i];
-        let relPath = file.webkitRelativePath || file.name;
-        formData.append('files', file, relPath);
-        formData.append('file_paths', relPath);
-    }
+    const defaultClass = document.getElementById('default_class').value || '';
+    const touchedClasses = new Set();
 
-    // Append Excel file if selected
-    const excelInput = document.getElementById('excelInput');
-    if (excelInput.files && excelInput.files.length > 0) {
-        formData.append('excel_file', excelInput.files[0]);
-    }
+    try {
+        // --- Step 1: Upload Roster Spreadsheet if provided ---
+        if (hasExcel) {
+            progressLabel.textContent = 'Uploading student roster spreadsheet...';
+            progressPercent.textContent = '5%';
+            progressBar.style.width = '5%';
+            progressSub.textContent = `Reading ${excelInput.files[0].name}...`;
 
-    // Default class
-    const defaultClass = document.getElementById('default_class').value;
-    if (defaultClass) {
-        formData.append('default_class', defaultClass);
-    }
+            const rosterData = new FormData();
+            rosterData.append('excel_file', excelInput.files[0]);
+            if (defaultClass) rosterData.append('default_class', defaultClass);
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', form.action, true);
+            const rosterRes = await fetch(`/admin/schools/${SCHOOL_ID}/upload-roster`, {
+                method: 'POST',
+                body: rosterData
+            });
 
-    xhr.upload.onprogress = function(e) {
-        if (e.lengthComputable) {
-            const percent = Math.round((e.loaded / e.total) * 100);
-            progressBar.style.width = percent + '%';
-            progressPercent.textContent = percent + '%';
-            if (percent >= 100) {
-                progressLabel.textContent = 'Processing and indexing records on server...';
+            if (!rosterRes.ok) {
+                const errText = await rosterRes.text();
+                throw new Error('Failed to upload student roster: ' + errText);
+            }
+            const rosterJson = await rosterRes.json();
+            progressSub.textContent = rosterJson.message || 'Roster imported successfully.';
+        }
+
+        // --- Step 2: Stream ID Card Images in Micro-Chunks (3-5 files per batch) ---
+        const totalImages = validImageFiles.length;
+        if (totalImages > 0) {
+            const BATCH_SIZE = 4; // Keeps payload under 1-2MB per request
+            let uploadedCount = 0;
+
+            for (let i = 0; i < totalImages; i += BATCH_SIZE) {
+                const batch = validImageFiles.slice(i, i + BATCH_SIZE);
+                const chunkData = new FormData();
+
+                for (let file of batch) {
+                    const relPath = file.webkitRelativePath || file.name;
+                    chunkData.append('files', file, relPath);
+                    chunkData.append('file_paths', relPath);
+                }
+                if (defaultClass) chunkData.append('default_class', defaultClass);
+
+                const chunkRes = await fetch(`/admin/schools/${SCHOOL_ID}/upload-card-chunk`, {
+                    method: 'POST',
+                    body: chunkData
+                });
+
+                if (!chunkRes.ok) {
+                    const errText = await chunkRes.text();
+                    throw new Error(`Upload error on batch ${i / BATCH_SIZE + 1}: ${errText}`);
+                }
+
+                const chunkJson = await chunkRes.json();
+                if (chunkJson.touched_classes) {
+                    chunkJson.touched_classes.forEach(c => touchedClasses.add(c));
+                }
+
+                uploadedCount += batch.length;
+                const percent = Math.min(95, Math.round((uploadedCount / totalImages) * 90) + (hasExcel ? 5 : 0));
+                progressBar.style.width = percent + '%';
+                progressPercent.textContent = percent + '%';
+                progressLabel.textContent = `Uploading ID Cards: ${uploadedCount} / ${totalImages} photos...`;
+                progressSub.textContent = `Processing: ${batch.map(b => b.name).join(', ')}`;
             }
         }
-    };
 
-    xhr.onload = function() {
-        if (xhr.status >= 200 && xhr.status < 400) {
-            // Success, navigate to target or follow redirect
-            if (xhr.responseURL) {
-                window.location.href = xhr.responseURL;
-            } else {
-                window.location.href = `/admin/schools/{{ school._id }}/id-card-progress?msg=ID+Cards+and+roster+uploaded+successfully`;
-            }
-        } else {
-            alert('Upload failed: ' + (xhr.responseText || xhr.statusText));
-            submitBtn.disabled = false;
-            submitBtn.style.opacity = '1';
-            submitBtn.textContent = 'Start Upload & Indexing';
-            progressSection.style.display = 'none';
+        // --- Step 3: Finalize & Auto-Index All Classes ---
+        progressLabel.textContent = 'Finalizing and indexing records...';
+        progressPercent.textContent = '98%';
+        progressBar.style.width = '98%';
+        progressSub.textContent = 'Building database search index and linking student records...';
+
+        const finalizeRes = await fetch(`/admin/schools/${SCHOOL_ID}/finalize-upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ classes: Array.from(touchedClasses) })
+        });
+
+        if (!finalizeRes.ok) {
+            const errText = await finalizeRes.text();
+            throw new Error('Failed to finalize upload: ' + errText);
         }
-    };
 
-    xhr.onerror = function() {
-        alert('Network error occurred during upload.');
+        const finalizeJson = await finalizeRes.json();
+        progressBar.style.width = '100%';
+        progressPercent.textContent = '100%';
+        progressLabel.textContent = 'Complete! Redirecting...';
+
+        window.location.href = finalizeJson.redirect_url || `/admin/schools/${SCHOOL_ID}/id-card-progress?msg=ID+Cards+uploaded+successfully`;
+
+    } catch (err) {
+        alert('Upload Error: ' + err.message);
         submitBtn.disabled = false;
         submitBtn.style.opacity = '1';
         submitBtn.textContent = 'Start Upload & Indexing';
         progressSection.style.display = 'none';
-    };
+    }
 
-    xhr.send(formData);
-});
+    return false;
+}
 </script>
 {% endblock %}

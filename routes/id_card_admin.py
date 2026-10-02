@@ -294,3 +294,101 @@ async def handle_school_upload_cards(
         status_code=303
     )
 
+@router.post("/schools/{school_id}/upload-roster")
+async def handle_upload_roster(
+    school_id: str,
+    excel_file: UploadFile = File(...),
+    default_class: Optional[str] = Form(None),
+    user = Depends(RoleChecker(["bloom_admin"]))
+):
+    school = SchoolService.get_school(school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    excel_bytes = await excel_file.read()
+    count = IdCardService.import_roster_spreadsheet(school_id, excel_bytes, default_class)
+    return JSONResponse({
+        "status": "success",
+        "imported_count": count,
+        "message": f"Successfully mapped {count} student records from roster spreadsheet"
+    })
+
+@router.post("/schools/{school_id}/upload-card-chunk")
+async def handle_upload_card_chunk(
+    school_id: str,
+    files: List[UploadFile] = File(...),
+    file_paths: Optional[List[str]] = Form(None),
+    default_class: Optional[str] = Form(None),
+    user = Depends(RoleChecker(["bloom_admin"]))
+):
+    school = SchoolService.get_school(school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    saved_count = 0
+    ignored_count = 0
+    touched_classes = set()
+
+    for idx, f in enumerate(files):
+        if not f.filename:
+            continue
+        path_name = f.filename
+        if file_paths and idx < len(file_paths) and file_paths[idx]:
+            path_name = file_paths[idx]
+        content = await f.read()
+        res = IdCardService.save_single_card_image(
+            school_id=school_id,
+            filepath_or_name=path_name,
+            file_bytes=content,
+            default_class_name=default_class
+        )
+        if res.get("ignored"):
+            ignored_count += 1
+        else:
+            saved_count += 1
+            if res.get("class_name"):
+                touched_classes.add(res["class_name"])
+
+    return JSONResponse({
+        "status": "success",
+        "saved_count": saved_count,
+        "ignored_count": ignored_count,
+        "touched_classes": sorted(list(touched_classes))
+    })
+
+@router.post("/schools/{school_id}/finalize-upload")
+async def handle_finalize_upload(
+    request: Request,
+    school_id: str,
+    user = Depends(RoleChecker(["bloom_admin"]))
+):
+    school = SchoolService.get_school(school_id)
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    try:
+        body = await request.json()
+        classes = body.get("classes", [])
+    except Exception:
+        classes = []
+
+    if not classes:
+        # Index all school classes
+        all_c = IdCardService.list_school_classes(school_id)
+        classes = [c["class_name"] for c in all_c]
+
+    indexed_summary = {}
+    for c in classes:
+        idx_res = IdCardService.index_class_cards(school_id, c)
+        indexed_summary[c] = idx_res.get("total", 0)
+
+    total_indexed = sum(indexed_summary.values())
+    msg = f"Successfully uploaded and indexed {total_indexed} ID cards across {len(classes)} classes."
+    
+    return JSONResponse({
+        "status": "success",
+        "message": msg,
+        "indexed_summary": indexed_summary,
+        "redirect_url": f"/admin/schools/{school_id}/id-card-progress?msg={msg}"
+    })
+
