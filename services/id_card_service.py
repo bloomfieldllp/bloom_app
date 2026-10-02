@@ -361,18 +361,49 @@ class IdCardService:
         if not distinct_classes:
             distinct_classes = ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]
 
+        # Batch aggregate all counts in a single fast query
+        class_stats: Dict[str, Dict[str, int]] = {}
+        try:
+            records = list(db.id_card_records.find({"school_id": str(school_id)}, {"class_name": 1, "status": 1}))
+            for r in records:
+                cname = r.get("class_name")
+                if not cname:
+                    continue
+                if cname not in class_stats:
+                    class_stats[cname] = {"total": 0, "verified": 0, "correction": 0}
+                class_stats[cname]["total"] += 1
+                st = r.get("status")
+                if st == "VERIFIED":
+                    class_stats[cname]["verified"] += 1
+                elif st in ["CORRECTION_REQUIRED", "PHOTO_WRONG"]:
+                    class_stats[cname]["correction"] += 1
+        except Exception as ae:
+            logger.debug(f"Record batch query note: {ae}")
+
+        stu_stats: Dict[str, int] = {}
+        if any(c not in class_stats for c in distinct_classes):
+            try:
+                stus = list(db.students.find({"school_id": str(school_id)}, {"standard": 1, "class_name": 1}))
+                for s in stus:
+                    std = s.get("standard") or s.get("class_name")
+                    if std:
+                        stu_stats[std] = stu_stats.get(std, 0) + 1
+            except Exception:
+                pass
+
         classes_summary = []
         for cname in sorted(distinct_classes, key=lambda x: (int(''.join(filter(str.isdigit, str(x))) or '999'), str(x))):
-            total = db.id_card_records.count_documents({"school_id": str(school_id), "class_name": cname})
-            verified = db.id_card_records.count_documents({"school_id": str(school_id), "class_name": cname, "status": "VERIFIED"})
-            correction = db.id_card_records.count_documents({"school_id": str(school_id), "class_name": cname, "status": {"$in": ["CORRECTION_REQUIRED", "PHOTO_WRONG"]}})
+            c_info = class_stats.get(cname, {"total": 0, "verified": 0, "correction": 0})
+            total = c_info["total"]
+            verified = c_info["verified"]
+            correction = c_info["correction"]
             pending = total - verified - correction
             if pending < 0:
                 pending = 0
 
             # If no id_card_records yet, check student count
             if total == 0:
-                stu_count = db.students.count_documents({"school_id": str(school_id), "$or": [{"standard": cname}, {"class_name": cname}]})
+                stu_count = stu_stats.get(cname, 0)
                 total = stu_count
                 pending = stu_count
 

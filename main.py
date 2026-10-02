@@ -131,7 +131,21 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from fastapi.middleware.gzip import GZipMiddleware
 from utils import get_resource_path, get_templates
+
+# Add GZip compression middleware (compresses payloads > 500 bytes)
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+@app.middleware("http")
+async def add_performance_and_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif path.startswith("/school/verification/image/"):
+        response.headers["Cache-Control"] = "public, max-age=3600, stale-while-revalidate=86400"
+    return response
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=get_resource_path("static")), name="static")

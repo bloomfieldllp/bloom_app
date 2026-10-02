@@ -19,7 +19,15 @@ def get_db():
     if db is None:
         if settings.IS_LOCAL_OPERATOR:
             try:
-                client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=2000, socketTimeoutMS=2000)
+                client = MongoClient(
+                    settings.MONGODB_URI,
+                    serverSelectionTimeoutMS=2000,
+                    socketTimeoutMS=2000,
+                    maxPoolSize=50,
+                    minPoolSize=5,
+                    maxIdleTimeMS=45000,
+                    retryWrites=True
+                )
                 client.admin.command('ping')
                 db = client[settings.MONGODB_DATABASE]
                 is_mock = False
@@ -32,7 +40,15 @@ def get_db():
                 seed_mock_data(db)
         else:
             try:
-                client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=5000, socketTimeoutMS=5000)
+                client = MongoClient(
+                    settings.MONGODB_URI,
+                    serverSelectionTimeoutMS=5000,
+                    socketTimeoutMS=5000,
+                    maxPoolSize=50,
+                    minPoolSize=5,
+                    maxIdleTimeMS=45000,
+                    retryWrites=True
+                )
                 db = client[settings.MONGODB_DATABASE]
                 is_mock = False
                 logger.info("Successfully connected to real MongoDB instance.")
@@ -211,6 +227,26 @@ def init_db():
         database.students.create_index("name")
         database.students.create_index("gr")
         database.students.create_index("photo_status")
+
+        # ID Card Verification & Correction Indexes
+        database.id_card_records.create_index([("school_id", 1), ("class_name", 1)])
+        database.id_card_records.create_index([("school_id", 1), ("class_name", 1), ("status", 1)])
+        database.id_card_records.create_index([("school_id", 1), ("gr", 1)])
+        database.id_card_records.create_index([("school_id", 1), ("file_stem", 1)])
+        
+        database.id_card_corrections.create_index([("school_id", 1), ("class_name", 1)])
+        database.id_card_corrections.create_index([("school_id", 1), ("gr", 1)])
+        database.id_card_corrections.create_index([("school_id", 1), ("last_updated", -1)])
+        
+        database.id_card_correction_history.create_index([("school_id", 1), ("timestamp", -1)])
+        database.id_card_correction_history.create_index([("school_id", 1), ("card_id", 1)])
+        
+        database.id_card_images.create_index([("school_id", 1), ("class_name", 1), ("file_stem", 1)])
+        database.id_card_images.create_index([("school_name_or_code", 1), ("class_name", 1), ("file_stem", 1)])
+        database.id_card_images.create_index("file_stem")
+
+        database.id_card_config.create_index("school_id", unique=True)
+        database.id_card_windows.create_index("school_id", unique=True)
 
         # Automatically create default super-admin if not present in real DB
         default_email = "bloomgrapheteria@gmail.com"
