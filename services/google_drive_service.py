@@ -31,30 +31,42 @@ class GoogleDriveService:
     ROOT_FOLDER_NAME = "ID Card Photos"
     CORRECTION_FOLDER_NAME = "Correction Needed"
     
-    # Base local directory for local/mock drive storage
-    LOCAL_STORAGE_ROOT = os.environ.get("BLOOM_DRIVE_LOCAL_ROOT", os.path.join(os.path.dirname(os.path.dirname(__file__)), "drive_storage"))
+    @classmethod
+    def get_base_storage_root(cls) -> str:
+        if os.environ.get("VERCEL") is not None or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") is not None:
+            return "/tmp/drive_storage"
+        return os.environ.get("BLOOM_DRIVE_LOCAL_ROOT", os.path.join(os.path.dirname(os.path.dirname(__file__)), "drive_storage"))
     
     _folder_cache: Dict[str, str] = {}
     _file_cache: Dict[str, Dict[str, Any]] = {}
 
     @classmethod
     def get_local_root(cls) -> str:
-        root_path = os.path.join(cls.LOCAL_STORAGE_ROOT, cls.ROOT_FOLDER_NAME)
-        os.makedirs(root_path, exist_ok=True)
+        root_path = os.path.join(cls.get_base_storage_root(), cls.ROOT_FOLDER_NAME)
+        try:
+            os.makedirs(root_path, exist_ok=True)
+        except OSError:
+            pass
         return root_path
 
     @classmethod
     def get_school_folder_path(cls, school_name_or_code: str) -> str:
         school_clean = str(school_name_or_code).replace("/", "_").replace("\\", "_").strip()
         path = os.path.join(cls.get_local_root(), school_clean)
-        os.makedirs(path, exist_ok=True)
+        try:
+            os.makedirs(path, exist_ok=True)
+        except OSError:
+            pass
         return path
 
     @classmethod
     def get_class_folder_path(cls, school_name_or_code: str, class_name: str) -> str:
         class_clean = str(class_name).replace("/", "_").replace("\\", "_").strip()
         path = os.path.join(cls.get_school_folder_path(school_name_or_code), class_clean)
-        os.makedirs(path, exist_ok=True)
+        try:
+            os.makedirs(path, exist_ok=True)
+        except OSError:
+            pass
         return path
 
     @classmethod
@@ -62,7 +74,10 @@ class GoogleDriveService:
         class_clean = str(class_name).replace("/", "_").replace("\\", "_").strip()
         school_path = cls.get_school_folder_path(school_name_or_code)
         path = os.path.join(school_path, cls.CORRECTION_FOLDER_NAME, class_clean)
-        os.makedirs(path, exist_ok=True)
+        try:
+            os.makedirs(path, exist_ok=True)
+        except OSError:
+            pass
         return path
 
     @classmethod
