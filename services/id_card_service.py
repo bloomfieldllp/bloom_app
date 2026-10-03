@@ -321,6 +321,55 @@ class IdCardService:
                 
             indexed_count += 1
 
+        # 3. For any Drive photos without a matching student record, create card records directly
+        processed_stems = {
+            os.path.splitext(s.get("photo_filename") or s.get("gr", ""))[0].lower().strip()
+            for s in student_records
+        }
+        for stem, dfile in drive_stems.items():
+            if stem not in processed_stems:
+                existing_corr = db.id_card_corrections.find_one({
+                    "school_id": str(school_id),
+                    "class_name": class_name,
+                    "file_stem": stem
+                })
+                default_status = "CORRECTION_REQUIRED" if existing_corr else "PENDING"
+                
+                card_doc = {
+                    "school_id": str(school_id),
+                    "class_name": class_name,
+                    "student_id": f"drive_{stem}",
+                    "gr": stem.upper(),
+                    "name": f"Student {stem.upper()}",
+                    "standard": class_name,
+                    "division": "",
+                    "roll_number": "",
+                    "date_of_birth": "",
+                    "address": "",
+                    "phone": "",
+                    "custom_fields": {},
+                    "file_stem": stem,
+                    "image_filename": dfile["name"],
+                    "image_available": True,
+                    "status": default_status,
+                    "updated_at": now.isoformat(),
+                    "created_at": now.isoformat()
+                }
+                
+                query = {
+                    "school_id": str(school_id),
+                    "class_name": class_name,
+                    "file_stem": stem
+                }
+                existing_card = db.id_card_records.find_one(query)
+                if not existing_card:
+                    db.id_card_records.insert_one(card_doc)
+                else:
+                    if existing_card.get("status") in ["VERIFIED", "CORRECTION_REQUIRED", "PHOTO_WRONG"]:
+                        card_doc["status"] = existing_card["status"]
+                    db.id_card_records.update_one(query, {"$set": card_doc})
+                indexed_count += 1
+
         logger.info(f"Indexed {indexed_count} ID card records for {school_name} - {class_name}")
         return {
             "indexed_count": indexed_count,
@@ -341,15 +390,26 @@ class IdCardService:
         except Exception:
             pass
 
-        # 1. Discover classes from id_card_records, students, or Drive
+        school_name = school.get("name", school_id) if school else school_id
+        school_code = school.get("school_code", school_id) if school else school_id
+
+        # 1. Discover classes from id_card_records, students, id_card_images, or Drive
         distinct_classes = db.id_card_records.distinct("class_name", {"school_id": str(school_id)})
+        
+        # Check id_card_images cache
+        img_classes = db.id_card_images.distinct("class_name", {
+            "$or": [{"school_id": str(school_id)}, {"school_name_or_code": school_name}, {"school_name_or_code": school_code}]
+        })
+        for c in img_classes:
+            if c and c not in distinct_classes:
+                distinct_classes.append(c)
+
         if not distinct_classes:
             distinct_classes = db.students.distinct("standard", {"school_id": str(school_id)})
             distinct_classes = [c for c in distinct_classes if c and str(c).strip()]
 
         # Also check Drive folders if local/mock drive has folders
         if school:
-            school_name = school.get("name", school_id)
             school_path = GoogleDriveService.get_school_folder_path(school_name)
             if os.path.exists(school_path):
                 for dname in os.listdir(school_path):

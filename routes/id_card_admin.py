@@ -206,6 +206,12 @@ async def trigger_drive_index(
     class_name: Optional[str] = Form(None),
     user = Depends(RoleChecker(["bloom_admin"]))
 ):
+    from services.google_drive_service import GoogleDriveService
+    school = SchoolService.get_school(school_id)
+    if school:
+        GoogleDriveService.sync_school_from_google_drive(school.get("name", ""), school_id)
+        GoogleDriveService.sync_school_from_google_drive(school.get("school_code", ""), school_id)
+
     if class_name:
         res = IdCardService.index_class_cards(school_id, class_name)
     else:

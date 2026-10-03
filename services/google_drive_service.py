@@ -84,6 +84,144 @@ class GoogleDriveService:
         return path
 
     @classmethod
+    def get_drive_client(cls):
+        """
+        Builds Google Drive API v3 client from GOOGLE_SERVICE_ACCOUNT_JSON env
+        or credentials/google-service-account.json file.
+        """
+        try:
+            from google.oauth2 import service_account
+            from googleapiclient.discovery import build
+
+            SCOPES = ['https://www.googleapis.com/auth/drive']
+            creds = None
+
+            # 1. Check environment variable (raw JSON string)
+            env_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+            if env_json:
+                try:
+                    info = json.loads(env_json)
+                    creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+                except Exception as je:
+                    logger.warning(f"Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: {je}")
+
+            # 2. Check credentials file
+            if not creds:
+                cred_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.path.join(
+                    os.path.dirname(os.path.dirname(__file__)), "credentials", "google-service-account.json"
+                )
+                if os.path.exists(cred_path):
+                    try:
+                        creds = service_account.Credentials.from_service_account_file(cred_path, scopes=SCOPES)
+                    except Exception as fe:
+                        logger.warning(f"Failed to load service account file: {fe}")
+
+            if creds:
+                service = build('drive', 'v3', credentials=creds, cache_discovery=False)
+                return service
+        except Exception as e:
+            logger.debug(f"Google Drive API client unavailable: {e}")
+        return None
+
+    @classmethod
+    def sync_school_from_google_drive(cls, school_name_or_code: str, school_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Scans remote Google Drive for the school's folders and images,
+        and caches their metadata into MongoDB for instant rendering and verification.
+        """
+        service = cls.get_drive_client()
+        if not service:
+            return []
+
+        master_id = os.environ.get("GOOGLE_DRIVE_MASTER_FOLDER_ID", "1q1JKJSGE2DBqunn-hSHRAA_lfT3e5brC")
+        if not master_id:
+            return []
+
+        synced_files = []
+        try:
+            # 1. List subfolders of Master Folder
+            results = service.files().list(
+                q=f"'{master_id}' in parents and trashed = false and mimeType = 'application/vnd.google-apps.folder'",
+                fields="files(id, name)",
+                pageSize=100
+            ).execute()
+            master_subfolders = results.get("files", [])
+
+            # Check if there is a matching school folder
+            school_folder_id = None
+            clean_target = str(school_name_or_code).lower().strip()
+            for f in master_subfolders:
+                fn_clean = f["name"].lower().strip()
+                if clean_target == fn_clean or clean_target in fn_clean or fn_clean in clean_target:
+                    school_folder_id = f["id"]
+                    break
+
+            # If no school folder match, master folder might directly contain class folders
+            class_folders = []
+            if school_folder_id:
+                class_res = service.files().list(
+                    q=f"'{school_folder_id}' in parents and trashed = false and mimeType = 'application/vnd.google-apps.folder'",
+                    fields="files(id, name)",
+                    pageSize=100
+                ).execute()
+                class_folders = class_res.get("files", [])
+            else:
+                class_folders = master_subfolders
+
+            from database import get_db
+            db = get_db()
+            IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+
+            for cf in class_folders:
+                cname = cf["name"]
+                if cname.lower() in [cls.CORRECTION_FOLDER_NAME.lower(), "correction needed", "corrections"]:
+                    continue
+
+                f_res = service.files().list(
+                    q=f"'{cf['id']}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'",
+                    fields="files(id, name, mimeType, size)",
+                    pageSize=1000
+                ).execute()
+                files = f_res.get("files", [])
+
+                for item in files:
+                    fname = item["name"]
+                    stem, ext = os.path.splitext(fname)
+                    if ext.lower() in IMAGE_EXTS:
+                        db.id_card_images.update_one(
+                            {
+                                "school_name_or_code": str(school_name_or_code).strip(),
+                                "class_name": cname.strip(),
+                                "file_stem": stem.lower().strip()
+                            },
+                            {
+                                "$set": {
+                                    "school_name_or_code": str(school_name_or_code).strip(),
+                                    "school_id": str(school_id) if school_id else None,
+                                    "class_name": cname.strip(),
+                                    "filename": fname,
+                                    "file_stem": stem.lower().strip(),
+                                    "drive_file_id": item["id"],
+                                    "content_type": item.get("mimeType", "image/jpeg"),
+                                    "updated_at": datetime.now(timezone.utc).isoformat()
+                                }
+                            },
+                            upsert=True
+                        )
+                        synced_files.append({
+                            "name": fname,
+                            "stem": stem.lower().strip(),
+                            "class_name": cname.strip(),
+                            "drive_file_id": item["id"]
+                        })
+
+            logger.info(f"Synced {len(synced_files)} ID card photos from Google Drive for {school_name_or_code}")
+        except Exception as e:
+            logger.error(f"Error syncing from Google Drive API: {e}")
+
+        return synced_files
+
+    @classmethod
     def list_class_files(cls, school_name_or_code: str, class_name: str) -> List[Dict[str, Any]]:
         """
         Lists all files in a class folder, extracting JPGs and Excel sheets.
@@ -91,24 +229,50 @@ class GoogleDriveService:
         """
         class_path = cls.get_class_folder_path(school_name_or_code, class_name)
         files = []
-        if not os.path.exists(class_path):
-            return files
-            
-        for fname in sorted(os.listdir(class_path)):
-            if fname.startswith("."):
-                continue
-            fpath = os.path.join(class_path, fname)
-            if os.path.isfile(fpath):
-                stem, ext = os.path.splitext(fname)
-                files.append({
-                    "name": fname,
-                    "stem": stem.lower().strip(),
-                    "extension": ext.lower(),
-                    "size": os.path.getsize(fpath),
-                    "path": fpath,
-                    "is_image": ext.lower() in [".jpg", ".jpeg", ".png", ".webp"],
-                    "is_excel": ext.lower() in [".xlsx", ".xls", ".csv"]
-                })
+        if os.path.exists(class_path):
+            for fname in sorted(os.listdir(class_path)):
+                if fname.startswith("."):
+                    continue
+                fpath = os.path.join(class_path, fname)
+                if os.path.isfile(fpath):
+                    stem, ext = os.path.splitext(fname)
+                    files.append({
+                        "name": fname,
+                        "stem": stem.lower().strip(),
+                        "extension": ext.lower(),
+                        "size": os.path.getsize(fpath),
+                        "path": fpath,
+                        "is_image": ext.lower() in [".jpg", ".jpeg", ".png", ".webp"],
+                        "is_excel": ext.lower() in [".xlsx", ".xls", ".csv"]
+                    })
+
+        # Also pull from MongoDB cache (including Google Drive synced images)
+        try:
+            from database import get_db
+            db = get_db()
+            db_imgs = list(db.id_card_images.find({
+                "$or": [
+                    {"school_name_or_code": str(school_name_or_code).strip(), "class_name": str(class_name).strip()},
+                    {"class_name": str(class_name).strip()}
+                ]
+            }))
+            existing_stems = {f["stem"] for f in files}
+            for d in db_imgs:
+                stem = d.get("file_stem", "").lower().strip()
+                if stem and stem not in existing_stems:
+                    files.append({
+                        "name": d.get("filename", f"{stem}.jpg"),
+                        "stem": stem,
+                        "extension": os.path.splitext(d.get("filename", ".jpg"))[1].lower(),
+                        "size": len(d.get("image_bytes", b"")) if d.get("image_bytes") else 0,
+                        "path": None,
+                        "is_image": True,
+                        "is_excel": False
+                    })
+                    existing_stems.add(stem)
+        except Exception:
+            pass
+
         return files
 
     @classmethod
@@ -342,7 +506,7 @@ class GoogleDriveService:
                 data = f.read()
             return data, content_type
             
-        # Fallback to MongoDB cache
+        # Fallback to MongoDB cache & Google Drive API download
         try:
             from database import get_db
             db = get_db()
@@ -354,8 +518,25 @@ class GoogleDriveService:
                     {"file_stem": stem_clean}
                 ]
             })
-            if img_doc and img_doc.get("image_bytes"):
-                return bytes(img_doc["image_bytes"]), img_doc.get("content_type", "image/jpeg")
+            if img_doc:
+                if img_doc.get("image_bytes"):
+                    return bytes(img_doc["image_bytes"]), img_doc.get("content_type", "image/jpeg")
+                    
+                # Download on-demand from Google Drive if drive_file_id exists
+                if img_doc.get("drive_file_id"):
+                    service = cls.get_drive_client()
+                    if service:
+                        try:
+                            file_data = service.files().get_media(fileId=img_doc["drive_file_id"]).execute()
+                            if file_data:
+                                # Cache in MongoDB for future instant loads
+                                db.id_card_images.update_one(
+                                    {"_id": img_doc["_id"]},
+                                    {"$set": {"image_bytes": file_data}}
+                                )
+                                return bytes(file_data), img_doc.get("content_type", "image/jpeg")
+                        except Exception as ge:
+                            logger.error(f"Error downloading image from Drive API for {file_stem_or_name}: {ge}")
         except Exception as e:
             logger.debug(f"Error fetching image from DB cache: {e}")
             
