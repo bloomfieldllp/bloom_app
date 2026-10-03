@@ -186,6 +186,9 @@ class GoogleDriveService:
 
                 for item in files:
                     fname = item["name"]
+                    if fname.startswith("._") or fname.startswith("Student ._"):
+                        continue
+                        
                     stem, ext = os.path.splitext(fname)
                     if ext.lower() in IMAGE_EXTS:
                         db.id_card_images.update_one(
@@ -260,6 +263,8 @@ class GoogleDriveService:
             existing_stems = {f["stem"] for f in files}
             for d in db_imgs:
                 stem = d.get("file_stem", "").lower().strip()
+                if stem.startswith("._") or stem.startswith("student ._"):
+                    continue
                 if stem and stem not in existing_stems:
                     files.append({
                         "name": d.get("filename", f"{stem}.jpg"),

@@ -11,7 +11,8 @@ body {
 
 /* Mobile-app like constraints */
 .mobile-app-container {
-    max-width: 430px; /* Standard phone width */
+    max-width: 100%;
+    width: 100%;
     margin: 0 auto;
     height: 100dvh;
     display: flex;
@@ -24,6 +25,7 @@ body {
 
 @media (min-width: 768px) {
     .mobile-app-container {
+        max-width: 430px;
         height: 90vh;
         margin-top: 5vh;
         border-radius: 40px;
@@ -102,7 +104,7 @@ body {
     z-index: 20;
     display: none;
     flex-direction: column;
-    padding: 1.5rem;
+    padding: 1rem 1.25rem;
     border-radius: 24px;
     opacity: 0;
     transition: opacity 0.3s ease;
@@ -262,43 +264,43 @@ body {
             
             <div class="id-card-wrapper" id="idCardWrapper">
                 <img id="singleCardImg" src="" class="id-card-image" alt="ID Card">
+            </div>
                 
-                <!-- EDIT OVERLAY -->
-                <div class="edit-overlay" id="editOverlay">
-                    <div class="edit-header">
-                        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #0f172a;">Edit Details</h3>
-                        <button class="icon-btn" style="width: 32px; height: 32px; min-height: 32px; border: none; background: transparent;" onclick="closeEditMode()">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                        </button>
+            <!-- EDIT OVERLAY -->
+            <div class="edit-overlay" id="editOverlay">
+                <div class="edit-header">
+                    <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #0f172a;">Edit Details</h3>
+                    <button class="icon-btn" style="width: 32px; height: 32px; min-height: 32px; border: none; background: transparent;" onclick="closeEditMode()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+
+                <form id="editStudentForm" onsubmit="handleSaveCorrection(event)" style="flex: 1; overflow-y: auto; padding-right: 4px;">
+                    <input type="hidden" id="edit_card_id" name="card_id">
+                    
+                    <div id="dynamicFieldsContainer">
+                        {% for f in active_fields %}
+                        <div class="form-field">
+                            <label class="form-label">{{ f.label }}</label>
+                            <input type="{{ 'date' if f.type == 'date' else 'text' }}" 
+                                   id="field_{{ f.key }}" 
+                                   name="{{ f.key }}" 
+                                   class="form-input" 
+                                   placeholder="Enter {{ f.label }}">
+                        </div>
+                        {% endfor %}
                     </div>
 
-                    <form id="editStudentForm" onsubmit="handleSaveCorrection(event)" style="flex: 1; overflow-y: auto; padding-right: 4px;">
-                        <input type="hidden" id="edit_card_id" name="card_id">
-                        
-                        <div id="dynamicFieldsContainer">
-                            {% for f in active_fields %}
-                            <div class="form-field">
-                                <label class="form-label">{{ f.label }}</label>
-                                <input type="{{ 'date' if f.type == 'date' else 'text' }}" 
-                                       id="field_{{ f.key }}" 
-                                       name="{{ f.key }}" 
-                                       class="form-input" 
-                                       placeholder="Enter {{ f.label }}">
-                            </div>
-                            {% endfor %}
+                    <div class="photo-wrong-box">
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #991b1b; cursor: pointer;">
+                            <input type="checkbox" id="photo_wrong_toggle" name="photo_wrong" value="true" style="width: 18px; height: 18px;" onchange="toggleReplacementUpload(this.checked)">
+                            Photo is Wrong
+                        </label>
+                        <div id="replacementUploadContainer" style="display: none; margin-top: 10px;">
+                            <input type="file" id="replacement_photo_input" name="replacement_photo" accept="image/*" class="form-input" style="font-size: 0.8rem; padding: 6px;">
                         </div>
-
-                        <div class="photo-wrong-box">
-                            <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #991b1b; cursor: pointer;">
-                                <input type="checkbox" id="photo_wrong_toggle" name="photo_wrong" value="true" style="width: 18px; height: 18px;" onchange="toggleReplacementUpload(this.checked)">
-                                Photo is Wrong
-                            </label>
-                            <div id="replacementUploadContainer" style="display: none; margin-top: 10px;">
-                                <input type="file" id="replacement_photo_input" name="replacement_photo" accept="image/*" class="form-input" style="font-size: 0.8rem; padding: 6px;">
-                            </div>
-                        </div>
-                    </form>
-                </div>
+                    </div>
+                </form>
             </div>
         </div>
 
