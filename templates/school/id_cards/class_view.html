@@ -208,6 +208,8 @@
 .gallery-item.status-VERIFIED { border-color: #16a34a; }
 .gallery-item.status-CORRECTION_REQUIRED { border-color: #ef4444; }
 .gallery-item.status-PHOTO_WRONG { border-color: #ef4444; }
+.gallery-item.status-NEW { border-color: #3b82f6; } /* Blue for New */
+.gallery-item.status-CORRECTED { border-color: #f59e0b; } /* Amber/Orange for Corrected */
 
 .gallery-legend {
     display: flex;
@@ -219,11 +221,14 @@
     font-size: 0.75rem;
     font-weight: 600;
     color: #475569;
+    flex-wrap: wrap;
 }
 .legend-item { display: flex; align-items: center; gap: 4px; }
 .legend-box { width: 14px; height: 14px; border-radius: 3px; border: 2px solid transparent; }
 .legend-box.verified { border-color: #16a34a; background: #dcfce7; }
 .legend-box.correction { border-color: #ef4444; background: #fee2e2; }
+.legend-box.new { border-color: #3b82f6; background: #dbeafe; }
+.legend-box.corrected { border-color: #f59e0b; background: #fef3c7; }
 .legend-box.pending { border-color: #cbd5e1; background: #ffffff; }
 
 </style>
@@ -327,6 +332,8 @@
             <div class="gallery-legend">
                 <div class="legend-item"><div class="legend-box verified"></div> Verified</div>
                 <div class="legend-item"><div class="legend-box correction"></div> Correction</div>
+                <div class="legend-item"><div class="legend-box new"></div> New</div>
+                <div class="legend-item"><div class="legend-box corrected"></div> Corrected</div>
                 <div class="legend-item"><div class="legend-box pending"></div> Not Marked</div>
             </div>
         </div>
@@ -362,7 +369,18 @@
         const card = CARDS_DATA[currentSingleIndex];
         
         document.getElementById('currentIndexText').textContent = currentSingleIndex + 1;
-        document.getElementById('singleCardImg').src = `/school/verification/image/${card.id}`;
+        
+        const singleImg = document.getElementById('singleCardImg');
+        singleImg.style.opacity = '0';
+        singleImg.onload = () => { singleImg.style.opacity = '1'; };
+        singleImg.src = `/school/verification/image/${card.id}`;
+        
+        // Preload next image to make swiping instant
+        if (currentSingleIndex < CARDS_DATA.length - 1) {
+            const nextCard = CARDS_DATA[currentSingleIndex + 1];
+            const preloader = new Image();
+            preloader.src = `/school/verification/image/${nextCard.id}`;
+        }
         
         // Highlight active card in gallery if opened
         document.querySelectorAll('.gallery-item').forEach(el => el.style.opacity = '1');
@@ -512,7 +530,20 @@
             
             const img = document.createElement('img');
             img.src = `/school/verification/image/${card.id}`;
-            img.loading = "lazy";
+            
+            // Priority for first row, lazy for the rest
+            if (index < 6) {
+                img.loading = "eager";
+                img.fetchPriority = "high";
+            } else {
+                img.loading = "lazy";
+            }
+            
+            // Fade-in effect
+            img.style.opacity = "0";
+            img.style.transition = "opacity 0.4s ease-in-out";
+            img.onload = () => { img.style.opacity = "1"; };
+            
             div.appendChild(img);
             grid.appendChild(div);
         });

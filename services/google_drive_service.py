@@ -179,7 +179,7 @@ class GoogleDriveService:
 
                 f_res = service.files().list(
                     q=f"'{cf['id']}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'",
-                    fields="files(id, name, mimeType, size)",
+                    fields="files(id, name, mimeType, size, modifiedTime)",
                     pageSize=1000
                 ).execute()
                 files = f_res.get("files", [])
@@ -205,6 +205,7 @@ class GoogleDriveService:
                                     "filename": fname,
                                     "file_stem": stem.lower().strip(),
                                     "drive_file_id": item["id"],
+                                    "drive_modified_time": item.get("modifiedTime"),
                                     "content_type": item.get("mimeType", "image/jpeg"),
                                     "updated_at": datetime.now(timezone.utc).isoformat()
                                 }
@@ -273,7 +274,8 @@ class GoogleDriveService:
                         "size": d.get("size", 0), # Default to 0 since we excluded bytes
                         "path": None,
                         "is_image": True,
-                        "is_excel": False
+                        "is_excel": False,
+                        "drive_modified_time": d.get("drive_modified_time")
                     })
                     existing_stems.add(stem)
         except Exception:

@@ -270,17 +270,35 @@ class IdCardService:
             image_filename = matched_drive["name"] if matched_drive else f"{file_stem}.jpg"
             image_available = matched_drive is not None
 
-            # Check if card is in Correction Needed
-            existing_corr = db.id_card_corrections.find_one({
+            query = {
                 "school_id": str(school_id),
                 "class_name": class_name,
                 "file_stem": file_stem
-            })
+            }
+            existing_card = db.id_card_records.find_one(query)
+            
+            # Check if card is in Correction Needed
+            existing_corr = db.id_card_corrections.find_one(query)
 
+            # Determine Default Status
             default_status = "PENDING"
-            if existing_corr:
+            
+            # Check if this class already has cards (used to tag entirely new uploads)
+            class_has_cards = db.id_card_records.count_documents({"school_id": str(school_id), "class_name": class_name}) > 0
+            
+            if not existing_card and class_has_cards:
+                default_status = "NEW"
+            elif existing_corr:
                 default_status = "CORRECTION_REQUIRED"
                 image_available = True
+                
+            # Check if it was under correction, but the image was updated on Drive!
+            if existing_card and matched_drive:
+                old_time = existing_card.get("drive_modified_time")
+                new_time = matched_drive.get("drive_modified_time")
+                if new_time and old_time != new_time:
+                    if existing_card.get("status") in ["CORRECTION_REQUIRED", "PHOTO_WRONG"]:
+                        default_status = "CORRECTED"
 
             def _gv(keys):
                 for k in keys:
@@ -316,6 +334,7 @@ class IdCardService:
                 "image_filename": image_filename,
                 "image_available": image_available,
                 "status": default_status,
+                "drive_modified_time": matched_drive.get("drive_modified_time") if matched_drive else None,
                 "updated_at": now.isoformat()
             }
 
@@ -331,9 +350,14 @@ class IdCardService:
                 card_doc["status"] = default_status
                 db.id_card_records.insert_one(card_doc)
             else:
-                # Preserve existing verified status if already verified and not in correction
-                if existing_card.get("status") in ["VERIFIED", "CORRECTION_REQUIRED", "PHOTO_WRONG"]:
+                # Preserve existing status if we didn't just determine it was NEW or CORRECTED
+                if default_status in ["NEW", "CORRECTED"]:
+                    card_doc["status"] = default_status
+                elif existing_card.get("status") in ["VERIFIED", "CORRECTION_REQUIRED", "PHOTO_WRONG"]:
                     card_doc["status"] = existing_card["status"]
+                else:
+                    card_doc["status"] = default_status
+                    
                 db.id_card_records.update_one(query, {"$set": card_doc})
                 
             indexed_count += 1
@@ -345,12 +369,29 @@ class IdCardService:
         }
         for stem, dfile in drive_stems.items():
             if stem not in processed_stems:
-                existing_corr = db.id_card_corrections.find_one({
+                query = {
                     "school_id": str(school_id),
                     "class_name": class_name,
                     "file_stem": stem
-                })
-                default_status = "CORRECTION_REQUIRED" if existing_corr else "PENDING"
+                }
+                existing_card = db.id_card_records.find_one(query)
+                existing_corr = db.id_card_corrections.find_one(query)
+                
+                # Determine Default Status
+                default_status = "PENDING"
+                class_has_cards = db.id_card_records.count_documents({"school_id": str(school_id), "class_name": class_name}) > 0
+                
+                if not existing_card and class_has_cards:
+                    default_status = "NEW"
+                elif existing_corr:
+                    default_status = "CORRECTION_REQUIRED"
+                    
+                if existing_card:
+                    old_time = existing_card.get("drive_modified_time")
+                    new_time = dfile.get("drive_modified_time")
+                    if new_time and old_time != new_time:
+                        if existing_card.get("status") in ["CORRECTION_REQUIRED", "PHOTO_WRONG"]:
+                            default_status = "CORRECTED"
                 
                 card_doc = {
                     "school_id": str(school_id),
@@ -368,22 +409,22 @@ class IdCardService:
                     "file_stem": stem,
                     "image_filename": dfile["name"],
                     "image_available": True,
+                    "drive_modified_time": dfile.get("drive_modified_time"),
                     "status": default_status,
                     "updated_at": now.isoformat(),
                     "created_at": now.isoformat()
                 }
                 
-                query = {
-                    "school_id": str(school_id),
-                    "class_name": class_name,
-                    "file_stem": stem
-                }
-                existing_card = db.id_card_records.find_one(query)
                 if not existing_card:
                     db.id_card_records.insert_one(card_doc)
                 else:
-                    if existing_card.get("status") in ["VERIFIED", "CORRECTION_REQUIRED", "PHOTO_WRONG"]:
+                    if default_status in ["NEW", "CORRECTED"]:
+                        card_doc["status"] = default_status
+                    elif existing_card.get("status") in ["VERIFIED", "CORRECTION_REQUIRED", "PHOTO_WRONG"]:
                         card_doc["status"] = existing_card["status"]
+                    else:
+                        card_doc["status"] = default_status
+                        
                     db.id_card_records.update_one(query, {"$set": card_doc})
                 indexed_count += 1
 
