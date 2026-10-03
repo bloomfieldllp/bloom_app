@@ -4,561 +4,344 @@
 
 {% block head %}
 <style>
-.class-view-header {
+/* Reset body to be centered on desktop */
+body {
+    background-color: #cbd5e1;
+}
+
+/* Mobile-app like constraints */
+.mobile-app-container {
+    max-width: 430px; /* Standard phone width */
+    margin: 0 auto;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: #f8fafc;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(0,0,0,0.1);
+}
+
+@media (min-width: 768px) {
+    .mobile-app-container {
+        height: 90vh;
+        margin-top: 5vh;
+        border-radius: 40px;
+        border: 8px solid #0f172a;
+    }
+}
+
+/* Header */
+.app-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: #f8fafc;
+    z-index: 10;
 }
-.mode-toggle {
-    display: flex;
-    background: #e2e8f0;
-    border-radius: 10px;
-    padding: 3px;
-}
-.mode-btn {
-    border: none;
-    background: transparent;
-    padding: 8px 14px; /* Increased touch target */
-    min-height: 44px; /* Touch target minimum */
-    border-radius: 8px;
-    font-size: clamp(0.85rem, 2vw, 0.95rem);
-    font-weight: 600;
-    cursor: pointer;
-    color: #475569;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s ease;
-}
-.mode-btn.active {
+.icon-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
     background: #ffffff;
-    color: #0f172a;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.filter-bar {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    flex-wrap: wrap;
-    background: #ffffff;
-    padding: 0.75rem 1rem;
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
-    margin-bottom: 1.5rem;
-}
-.filter-input, .filter-select {
-    flex: 1;
-    min-width: 140px;
-    min-height: 44px; /* Touch target */
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 0.5rem 0.75rem;
-    font-size: clamp(0.85rem, 2vw, 0.95rem);
-    outline: none;
-    background: #fff;
-    box-sizing: border-box;
-}
-.filter-input:focus {
-    border-color: var(--brand-primary);
-}
-
-/* Grid View Styles */
-.cards-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: clamp(1rem, 2vw, 1.5rem);
-}
-.id-card-item {
-    background: #ffffff;
-    border-radius: 14px;
-    border: 1px solid var(--border-color);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.id-card-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
-}
-.card-img-wrap {
-    width: 100%;
-    aspect-ratio: 1 / 1.45;
-    background: #f1f5f9;
-    position: relative;
-    overflow: hidden;
+    border: 1px solid #e2e8f0;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    color: #0f172a;
+    transition: all 0.2s;
 }
-.card-img {
+.icon-btn:active {
+    background: #f1f5f9;
+}
+
+/* Middle Content Area */
+.app-content {
+    flex: 1;
+    position: relative;
+    padding: 0 1.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* ID Card Container */
+.id-card-wrapper {
+    width: 100%;
+    height: 100%;
+    max-height: calc(100% - 20px);
+    background: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #e2e8f0;
+}
+.id-card-image {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    background: #f8fafc;
+    border-radius: 24px;
+    transition: filter 0.3s ease;
 }
-.card-meta {
-    padding: 0.75rem 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.card-student-name {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0;
-    /* Use word wrapping instead of truncation to avoid hidden text */
-    word-break: break-word;
-    overflow-wrap: break-word;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-.card-student-gr {
-    font-size: 0.8rem;
-    color: #64748b;
-    margin: 0;
-    word-break: break-all;
-}
-.card-actions {
-    display: flex;
-    gap: 6px;
-    padding: 0.75rem 1rem;
-    border-top: 1px solid #f1f5f9;
-    background: #fafbfc;
-}
-.btn-verify, .btn-edit, .btn-secondary {
-    min-height: 44px; /* Touch target */
-    padding: 0.5rem 0.8rem;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: clamp(0.85rem, 2vw, 0.95rem);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    transition: all 0.15s ease;
-    box-sizing: border-box;
-}
-.btn-verify {
-    flex: 1;
-    border: 1px solid #16a34a;
-    background: #16a34a;
-    color: #fff;
-}
-.btn-verify:hover { background: #15803d; }
-.btn-verified-active {
-    background: #dcfce7;
-    color: #166534;
-    border-color: #86efac;
-    cursor: default;
-}
-.btn-edit {
-    border: 1px solid var(--border-color);
-    background: #fff;
-    color: #334155;
-}
-.btn-edit:hover { background: #f8fafc; border-color: #cbd5e1; }
 
-/* Status Badges */
-.card-status-badge {
+/* Edit Overlay */
+.edit-overlay {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    backdrop-filter: blur(4px);
-}
-.status-PENDING { background: rgba(254, 243, 199, 0.95); color: #92400e; border: 1px solid #fde68a; }
-.status-VERIFIED { background: rgba(220, 252, 231, 0.95); color: #166534; border: 1px solid #bbf7d0; }
-.status-CORRECTION_REQUIRED, .status-PHOTO_WRONG { background: rgba(254, 226, 226, 0.95); color: #991b1b; border: 1px solid #fecaca; }
-
-/* Single Card View Styles & Split Layout */
-#gridViewContainer { display: block; }
-#singleViewContainer { display: none; }
-
-.app-layout-single #singleViewContainer { display: block; }
-.app-layout-single #gridViewContainer { display: none; }
-
-@media (min-width: 1024px) {
-    .app-layout-single {
-        display: grid;
-        grid-template-columns: 1fr 500px;
-        gap: clamp(1rem, 3vw, 2.5rem);
-        align-items: start;
-    }
-    .app-layout-single #gridViewContainer {
-        display: block; /* Show grid beside single view on desktop */
-        max-height: calc(100dvh - 220px);
-        overflow-y: auto;
-        padding-right: 0.5rem;
-        /* Custom scrollbar for grid */
-    }
-    .app-layout-single #gridViewContainer::-webkit-scrollbar { width: 6px; }
-    .app-layout-single #gridViewContainer::-webkit-scrollbar-track { background: transparent; }
-    .app-layout-single #gridViewContainer::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    
-    .app-layout-single #singleViewContainer {
-        position: sticky;
-        top: 1rem;
-    }
-}
-
-.single-view-container {
-    background: #ffffff;
-    border-radius: 20px;
-    border: 1px solid var(--border-color);
-    padding: clamp(1rem, 3vw, 1.5rem);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-    max-width: 100%;
-}
-.single-card-img-wrap {
-    width: 100%;
-    aspect-ratio: 1 / 1.45;
-    max-height: 60dvh;
-    background: #f8fafc;
-    border-radius: 12px;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 1rem 0;
-    border: 1px solid #f1f5f9;
-}
-.single-card-img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-}
-.single-nav-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-}
-.single-title-wrap {
-    text-align: center;
-    margin-bottom: 1.25rem;
-    word-break: break-word;
-    overflow-wrap: break-word;
-}
-
-/* Edit Bottom Sheet / Modal */
-.edit-sheet-overlay {
-    position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    z-index: 999;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 20;
     display: none;
-    align-items: flex-end;
-    justify-content: center;
+    flex-direction: column;
+    padding: 1.5rem;
+    border-radius: 24px;
     opacity: 0;
-    transition: opacity 0.25s ease;
+    transition: opacity 0.3s ease;
 }
-.edit-sheet-overlay.active {
+.edit-overlay.active {
     display: flex;
     opacity: 1;
 }
-.edit-sheet-content {
-    background: #ffffff;
-    width: 100%;
-    max-width: 600px;
-    border-radius: 24px 24px 0 0;
-    max-height: 90dvh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    transform: translateY(100%);
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@media (min-width: 768px) {
-    .edit-sheet-overlay {
-        align-items: center;
-    }
-    .edit-sheet-content {
-        border-radius: 20px;
-        max-height: 85dvh;
-    }
-}
-.edit-sheet-overlay.active .edit-sheet-content {
-    transform: translateY(0);
-}
-.sheet-handle {
-    width: 40px;
-    height: 4px;
-    background: #cbd5e1;
-    border-radius: 2px;
-    margin: 12px auto 6px auto;
-}
-@media (min-width: 768px) {
-    .sheet-handle { display: none; }
-}
-.sheet-header {
-    padding: clamp(0.75rem, 2vw, 1.25rem) 1.5rem;
-    border-bottom: 1px solid #f1f5f9;
+
+.edit-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 1rem;
 }
-.sheet-body {
-    padding: clamp(1rem, 3vw, 1.5rem);
-    overflow-y: auto;
-    flex: 1;
-}
-.sheet-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid #f1f5f9;
+
+/* Bottom Bar */
+.bottom-bar {
+    padding: 1rem 1.25rem 1.5rem 1.25rem;
+    background: #f8fafc;
     display: flex;
-    gap: 10px;
-    background: #fafbfc;
+    gap: 0.5rem;
+    z-index: 10;
 }
-.form-field { margin-bottom: 1.25rem; }
-.form-label {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #475569;
-    margin-bottom: 6px;
+.btn-action {
+    flex: 1;
+    min-height: 52px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
 }
+.btn-action:active { transform: scale(0.96); }
+.btn-prev { background: #ffffff; border: 1px solid #cbd5e1; color: #475569; }
+.btn-edit { background: #eff6ff; color: #2563eb; }
+.btn-verify { background: #16a34a; color: #ffffff; }
+.btn-save { background: #2563eb; color: #ffffff; }
+.btn-cancel { background: #e2e8f0; color: #475569; }
+
+/* Edit Form Fields */
+.form-field { margin-bottom: 1rem; }
+.form-label { display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
 .form-input {
     width: 100%;
-    min-height: 44px; /* Touch target */
-    padding: 0.65rem 0.85rem;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
     border: 1px solid #cbd5e1;
     border-radius: 10px;
-    font-size: 1rem; /* Prevent iOS zoom */
+    font-size: 0.95rem;
     outline: none;
     box-sizing: border-box;
+    background: #ffffff;
 }
 .form-input:focus {
-    border-color: var(--brand-primary);
-    box-shadow: 0 0 0 3px rgba(230, 103, 61, 0.12);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
+
 .photo-wrong-box {
     background: #fff5f5;
     border: 1px dashed #fca5a5;
     border-radius: 12px;
-    padding: 1.25rem;
-    margin-top: 1.5rem;
+    padding: 1rem;
+    margin-top: 1rem;
 }
+
+/* Gallery Overlay */
+.gallery-overlay {
+    position: absolute;
+    inset: 0;
+    background: #f8fafc;
+    z-index: 30;
+    display: none;
+    flex-direction: column;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.gallery-overlay.active {
+    display: flex;
+    opacity: 1;
+}
+.gallery-grid {
+    padding: 0 1.25rem 1.25rem 1.25rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    overflow-y: auto;
+    flex: 1;
+    align-content: start;
+}
+.gallery-item {
+    aspect-ratio: 1 / 1.45;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 3px solid transparent;
+    cursor: pointer;
+    position: relative;
+}
+.gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.gallery-item.status-VERIFIED { border-color: #16a34a; }
+.gallery-item.status-CORRECTION_REQUIRED { border-color: #ef4444; }
+.gallery-item.status-PHOTO_WRONG { border-color: #ef4444; }
+
+.gallery-legend {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+}
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-box { width: 14px; height: 14px; border-radius: 3px; border: 2px solid transparent; }
+.legend-box.verified { border-color: #16a34a; background: #dcfce7; }
+.legend-box.correction { border-color: #ef4444; background: #fee2e2; }
+.legend-box.pending { border-color: #cbd5e1; background: #ffffff; }
+
 </style>
 {% endblock %}
 
 {% block content %}
-<div style="max-width: 1440px; margin: 0 auto; padding: clamp(0.5rem, 2vw, 1.5rem);">
+<!-- We hide the default base.html padding if possible, or just overlay -->
+<div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #cbd5e1; z-index: 9999;">
+    
+    <div class="mobile-app-container">
 
-    <!-- Top Navigation Header -->
-    <div class="class-view-header">
-        <div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                <a href="/school/verification" style="text-decoration: none; color: var(--brand-primary); font-size: clamp(0.85rem, 2vw, 0.95rem); font-weight: 600; display: flex; align-items: center; gap: 4px;">
-                    ← Back to Classes
-                </a>
-                <span style="color: #cbd5e1;">/</span>
-                <span id="global-sync-badge" class="sync-status-badge">
-                    <span class="sync-dot sync-dot-success"></span> Synced
-                </span>
+        <!-- HEADER -->
+        <div class="app-header" id="mainHeader">
+            <a href="/school/verification" class="icon-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </a>
+            <div style="text-align: center;">
+                <div style="font-weight: 800; font-size: 1.1rem; color: #0f172a;" id="headerTitle">ID Cards</div>
+                <div style="font-size: 0.75rem; color: #64748b; font-weight: 600;"><span id="currentIndexText">1</span> of <span id="totalIndexText">{{ cards|length }}</span></div>
             </div>
-            <h1 style="color: #111; font-weight: 800; font-size: clamp(1.4rem, 3vw, 1.8rem); margin: 0;">
-                {{ class_name }} — ID Cards
-            </h1>
-            <p style="color: #64748b; font-size: clamp(0.85rem, 2vw, 0.95rem); margin: 4px 0 0 0; word-break: break-word;">
-                {{ verified_count }} / {{ total }} Verified · {{ correction_count }} Correction Required · {{ pending_count }} Pending
-            </p>
-        </div>
-
-        <!-- Mode Switcher -->
-        <div class="mode-toggle">
-            <button type="button" class="mode-btn {% if mode == 'grid' %}active{% endif %}" onclick="switchViewMode('grid')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-                <span class="mode-text">Grid</span>
-            </button>
-            <button type="button" class="mode-btn {% if mode == 'single' %}active{% endif %}" onclick="switchViewMode('single')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="9" x2="9" y1="21" y2="9"/></svg>
-                <span class="mode-text">Single</span>
+            <button class="icon-btn" onclick="openGallery()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             </button>
         </div>
-    </div>
 
-    <!-- Filter & Search Bar -->
-    <div class="filter-bar">
-        <input type="text" id="searchInput" class="filter-input" placeholder="Search by Student Name, GR Number..." value="{{ search }}" oninput="debounceSearch()">
-        
-        <select id="statusFilter" class="filter-select" onchange="applyFilters()">
-            <option value="all" {% if status == 'all' %}selected{% endif %}>All Statuses</option>
-            <option value="PENDING" {% if status == 'PENDING' %}selected{% endif %}>Pending</option>
-            <option value="VERIFIED" {% if status == 'VERIFIED' %}selected{% endif %}>Verified</option>
-            <option value="CORRECTION_REQUIRED" {% if status == 'CORRECTION_REQUIRED' %}selected{% endif %}>Correction</option>
-        </select>
-
-        <select id="sortSelect" class="filter-select" onchange="applyFilters()">
-            <option value="default" {% if sort == 'default' %}selected{% endif %}>Excel Order</option>
-            <option value="name" {% if sort == 'name' %}selected{% endif %}>Name (A-Z)</option>
-            <option value="gr" {% if sort == 'gr' %}selected{% endif %}>GR Number</option>
-            <option value="status" {% if sort == 'status' %}selected{% endif %}>Status</option>
-        </select>
-    </div>
-
-    <!-- MAIN APP LAYOUT (Handles Split View automatically) -->
-    <div id="mainContentWrapper" class="{% if mode == 'single' %}app-layout-single{% endif %}">
-        
-        <!-- GRID VIEW -->
-        <div id="gridViewContainer">
-            {% if cards %}
-            <div class="cards-grid">
-                {% for c in cards %}
-                <div class="id-card-item" id="card-item-{{ c.id }}" data-card-id="{{ c.id }}">
-                    <div class="card-img-wrap" onclick="openSingleCardView('{{ loop.index0 }}')">
-                        <img src="/school/verification/image/{{ c.id }}" class="card-img" loading="lazy" alt="{{ c.name }} ID Card">
-                        <span class="card-status-badge status-{{ c.status }}" id="badge-{{ c.id }}">
-                            {{ c.status.replace('_', ' ') }}
-                        </span>
-                    </div>
-                    
-                    <div class="card-meta">
-                        <h4 class="card-student-name" title="{{ c.name }}">{{ c.name }}</h4>
-                        <p class="card-student-gr">GR: {{ c.gr or 'N/A' }} · Std: {{ c.standard or class_name }}</p>
-                    </div>
-
-                    <div class="card-actions">
-                        {% if c.status == 'VERIFIED' %}
-                        <button type="button" class="btn-verify btn-verified-active" id="btn-verify-{{ c.id }}">
-                            ✓ Verified
-                        </button>
-                        {% else %}
-                        <button type="button" class="btn-verify" id="btn-verify-{{ c.id }}" onclick="handleVerifyCard('{{ c.id }}')">
-                            ✓ Verify
-                        </button>
-                        {% endif %}
-                        
-                        <button type="button" class="btn-edit" onclick="openEditBottomSheet('{{ c.id }}')">
-                            ✎ Edit
-                        </button>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <div style="background: #fff; padding: 3rem; text-align: center; border-radius: 16px; border: 1px solid var(--border-color); color: #64748b;">
-                <p style="font-size: 1.1rem; margin: 0;">No matching ID cards found.</p>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- SINGLE CARD VIEW -->
-        <div id="singleViewContainer">
-            {% if cards %}
-            <div class="single-view-container">
-                <div class="single-nav-bar">
-                    <button type="button" class="btn-secondary" onclick="prevCard()" style="border: 1px solid #cbd5e1; background: #fff;">
-                        ← Prev
-                    </button>
-                    <div style="font-weight: 700; font-size: clamp(0.9rem, 2vw, 1rem); color: #0f172a;">
-                        <span id="singleCardIndex">1</span> / <span id="singleCardTotal">{{ cards|length }}</span>
-                    </div>
-                    <button type="button" class="btn-secondary" onclick="nextCard()" style="border: 1px solid #cbd5e1; background: #fff;">
-                        Next →
-                    </button>
-                </div>
-
-                <div class="single-card-img-wrap" onclick="openEditBottomSheet(CARDS_DATA[currentSingleIndex].id)" style="cursor: pointer;">
-                    <img id="singleCardImg" src="/school/verification/image/{{ cards[0].id }}" class="single-card-img" alt="ID Card">
-                </div>
-
-                <div class="single-title-wrap">
-                    <h3 id="singleCardName" style="margin: 0; font-size: clamp(1.2rem, 3vw, 1.5rem); font-weight: 800; color: #0f172a;">{{ cards[0].name }}</h3>
-                    <p id="singleCardGr" style="margin: 4px 0 0 0; color: #64748b; font-size: clamp(0.85rem, 2vw, 0.95rem);">GR: {{ cards[0].gr }} · Std: {{ cards[0].standard }}</p>
-                    <div style="margin-top: 8px;">
-                        <span id="singleCardStatusBadge" class="card-status-badge status-{{ cards[0].status }}" style="position: static; display: inline-block;">
-                            {{ cards[0].status.replace('_', ' ') }}
-                        </span>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <button type="button" id="singleVerifyBtn" class="btn-verify" onclick="handleVerifyCurrentSingle()">
-                        ✓ Verify
-                    </button>
-                    <button type="button" id="singleEditBtn" class="btn-edit" onclick="handleEditCurrentSingle()">
-                        ✎ Edit Details
-                    </button>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-        
-    </div>
-</div>
-
-<!-- Mobile-Friendly Edit Bottom Sheet / Modal -->
-<div class="edit-sheet-overlay" id="editSheetOverlay" onclick="closeEditSheet(event)">
-    <div class="edit-sheet-content" onclick="event.stopPropagation()">
-        <div class="sheet-handle"></div>
-        
-        <div class="sheet-header">
-            <h3 style="margin: 0; font-size: clamp(1.1rem, 3vw, 1.3rem); font-weight: 800; color: #0f172a;">Edit Student</h3>
-            <button type="button" onclick="closeEditSheet(null, true)" style="border: none; background: transparent; font-size: 1.5rem; min-width: 44px; min-height: 44px; cursor: pointer; color: #64748b;">&times;</button>
-        </div>
-
-        <form id="editStudentForm" onsubmit="handleSaveCorrection(event)">
-            <input type="hidden" id="edit_card_id" name="card_id">
+        <!-- MAIN CONTENT AREA -->
+        <div class="app-content" id="mainContent">
             
-            <div class="sheet-body">
-                <div id="dynamicFieldsContainer">
-                    {% for f in active_fields %}
-                    <div class="form-field">
-                        <label class="form-label">{{ f.label }}</label>
-                        <input type="{{ 'date' if f.type == 'date' else 'text' }}" 
-                               id="field_{{ f.key }}" 
-                               name="{{ f.key }}" 
-                               class="form-input" 
-                               placeholder="Enter {{ f.label }}">
+            <div class="id-card-wrapper" id="idCardWrapper">
+                <img id="singleCardImg" src="" class="id-card-image" alt="ID Card">
+                
+                <!-- EDIT OVERLAY -->
+                <div class="edit-overlay" id="editOverlay">
+                    <div class="edit-header">
+                        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #0f172a;">Edit Details</h3>
+                        <button class="icon-btn" style="width: 32px; height: 32px; min-height: 32px; border: none; background: transparent;" onclick="closeEditMode()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
                     </div>
-                    {% endfor %}
-                </div>
 
-                <!-- Photo is Wrong Toggle Box -->
-                <div class="photo-wrong-box">
-                    <label style="display: flex; align-items: center; gap: 12px; font-weight: 700; color: #991b1b; cursor: pointer; min-height: 44px;">
-                        <input type="checkbox" id="photo_wrong_toggle" name="photo_wrong" value="true" onchange="toggleReplacementUpload(this.checked)" style="width: 20px; height: 20px; flex-shrink: 0;">
-                        <span style="font-size: clamp(0.9rem, 2vw, 1rem);">Photo is Wrong</span>
-                    </label>
-                    <p style="margin: 4px 0 0 32px; font-size: clamp(0.75rem, 2vw, 0.85rem); color: #7f1d1d; line-height: 1.4;">
-                        Marks photo as incorrect and moves generated ID card to Correction folder.
-                    </p>
-
-                    <div id="replacementUploadContainer" style="display: none; margin-top: 12px; padding-left: 32px;">
-                        <label class="form-label" style="color: #991b1b;">Upload Correct Photo (Optional)</label>
-                        <input type="file" id="replacement_photo_input" name="replacement_photo" accept="image/*" class="form-input" style="background: #fff; padding: 10px;" onchange="previewReplacementPhoto(this)">
+                    <form id="editStudentForm" onsubmit="handleSaveCorrection(event)" style="flex: 1; overflow-y: auto; padding-right: 4px;">
+                        <input type="hidden" id="edit_card_id" name="card_id">
                         
-                        <div id="replacementPreviewWrap" style="display: none; margin-top: 10px;">
-                            <img id="replacementPreviewImg" src="" style="width: 80px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1;">
+                        <div id="dynamicFieldsContainer">
+                            {% for f in active_fields %}
+                            <div class="form-field">
+                                <label class="form-label">{{ f.label }}</label>
+                                <input type="{{ 'date' if f.type == 'date' else 'text' }}" 
+                                       id="field_{{ f.key }}" 
+                                       name="{{ f.key }}" 
+                                       class="form-input" 
+                                       placeholder="Enter {{ f.label }}">
+                            </div>
+                            {% endfor %}
                         </div>
-                    </div>
+
+                        <div class="photo-wrong-box">
+                            <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #991b1b; cursor: pointer;">
+                                <input type="checkbox" id="photo_wrong_toggle" name="photo_wrong" value="true" style="width: 18px; height: 18px;" onchange="toggleReplacementUpload(this.checked)">
+                                Photo is Wrong
+                            </label>
+                            <div id="replacementUploadContainer" style="display: none; margin-top: 10px;">
+                                <input type="file" id="replacement_photo_input" name="replacement_photo" accept="image/*" class="form-input" style="font-size: 0.8rem; padding: 6px;">
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </div>
+        </div>
 
-            <div class="sheet-footer">
-                <button type="button" class="btn-secondary" onclick="closeEditSheet(null, true)" style="flex: 1; border: 1px solid #cbd5e1; background: #fff;">
-                    Cancel
+        <!-- NORMAL BOTTOM BAR -->
+        <div class="bottom-bar" id="normalBottomBar">
+            <button class="btn-action btn-prev" onclick="prevCard()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg> Previous
+            </button>
+            <button class="btn-action btn-edit" onclick="openEditMode()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Edit
+            </button>
+            <button class="btn-action btn-verify" onclick="handleVerifyCurrentSingle()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Verify
+            </button>
+        </div>
+
+        <!-- EDIT BOTTOM BAR -->
+        <div class="bottom-bar" id="editBottomBar" style="display: none;">
+            <button class="btn-action btn-cancel" onclick="closeEditMode()">Cancel</button>
+            <button class="btn-action btn-save" onclick="document.getElementById('editStudentForm').requestSubmit()">Save</button>
+        </div>
+
+        <!-- GALLERY OVERLAY -->
+        <div class="gallery-overlay" id="galleryOverlay">
+            <div class="app-header">
+                <button class="icon-btn" onclick="closeGallery()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 </button>
-                <button type="submit" id="saveCorrectionBtn" class="btn-verify" style="flex: 2; background: #0f172a; border-color: #0f172a;">
-                    Save Correction
-                </button>
+                <div style="font-weight: 800; font-size: 1.1rem; color: #0f172a;">All i-Cards</div>
+                <div style="width: 44px;"></div> <!-- spacer -->
             </div>
-        </form>
+            
+            <div class="gallery-grid" id="galleryGrid">
+                <!-- Javascript will populate this -->
+            </div>
+
+            <div class="gallery-legend">
+                <div class="legend-item"><div class="legend-box verified"></div> Verified</div>
+                <div class="legend-item"><div class="legend-box correction"></div> Correction</div>
+                <div class="legend-item"><div class="legend-box pending"></div> Not Marked</div>
+            </div>
+        </div>
+
     </div>
 </div>
 {% endblock %}
@@ -570,63 +353,41 @@
     const ACTIVE_FIELDS = {{ active_fields|tojson|safe }};
     const SCHOOL_ID = "{{ school._id }}";
     const CLASS_NAME = "{{ class_name }}";
-    const CORRECTION_WINDOW = {{ correction_window|tojson|safe }};
     
     let currentSingleIndex = 0;
 
     document.addEventListener('DOMContentLoaded', () => {
-        const badgeEl = document.getElementById('global-sync-badge');
-        if (badgeEl && window.idCardSync) {
-            window.idCardSync.setFeedbackElement(badgeEl);
-        }
-
-        // Keyboard navigation for single card mode
-        document.addEventListener('keydown', (e) => {
-            const overlay = document.getElementById('editSheetOverlay');
-            if (overlay && overlay.classList.contains('active')) return;
-            
-            const wrapper = document.getElementById('mainContentWrapper');
-            if (wrapper && wrapper.classList.contains('app-layout-single')) {
-                if (e.key === 'ArrowLeft') prevCard();
-                if (e.key === 'ArrowRight') nextCard();
-            }
-        });
+        // Initialize Gallery
+        renderGallery();
+        // Load first card
+        updateSingleCardDisplay();
     });
 
-    function switchViewMode(mode) {
-        const wrapper = document.getElementById('mainContentWrapper');
-        const btns = document.querySelectorAll('.mode-btn');
-
-        btns.forEach(b => b.classList.remove('active'));
-        if (mode === 'grid') {
-            wrapper.classList.remove('app-layout-single');
-            btns[0].classList.add('active');
-        } else {
-            wrapper.classList.add('app-layout-single');
-            btns[1].classList.add('active');
-            updateSingleCardDisplay();
-            
-            // Scroll selected card into view on desktop left panel
-            if (window.innerWidth >= 1024) {
-                const cardEl = document.getElementById(`card-item-${CARDS_DATA[currentSingleIndex].id}`);
-                if (cardEl) {
-                    cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
-            }
+    function updateSingleCardDisplay() {
+        if (!CARDS_DATA || CARDS_DATA.length === 0) {
+            document.getElementById('singleCardImg').src = '';
+            document.getElementById('currentIndexText').textContent = '0';
+            document.getElementById('totalIndexText').textContent = '0';
+            return;
         }
-    }
-
-    function openSingleCardView(index) {
-        currentSingleIndex = parseInt(index) || 0;
-        switchViewMode('single');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        const card = CARDS_DATA[currentSingleIndex];
+        
+        document.getElementById('currentIndexText').textContent = currentSingleIndex + 1;
+        document.getElementById('singleCardImg').src = `/school/verification/image/${card.id}`;
+        
+        // Highlight active card in gallery if opened
+        document.querySelectorAll('.gallery-item').forEach(el => el.style.opacity = '1');
+        const activeGalleryItem = document.getElementById(`gallery-item-${card.id}`);
+        if(activeGalleryItem) {
+            activeGalleryItem.style.boxShadow = '0 0 0 4px rgba(37,99,235,0.3)';
+        }
     }
 
     function prevCard() {
         if (currentSingleIndex > 0) {
             currentSingleIndex--;
             updateSingleCardDisplay();
-            scrollGridToActive();
         }
     }
 
@@ -634,108 +395,36 @@
         if (currentSingleIndex < CARDS_DATA.length - 1) {
             currentSingleIndex++;
             updateSingleCardDisplay();
-            scrollGridToActive();
-        }
-    }
-    
-    function scrollGridToActive() {
-        if (window.innerWidth >= 1024) {
-            const activeId = CARDS_DATA[currentSingleIndex].id;
-            const cardEl = document.getElementById(`card-item-${activeId}`);
-            if (cardEl) {
-                // Remove highlight from all
-                document.querySelectorAll('.id-card-item').forEach(el => {
-                    el.style.border = '1px solid var(--border-color)';
-                    el.style.boxShadow = 'none';
-                });
-                // Highlight active
-                cardEl.style.border = '2px solid var(--brand-primary)';
-                cardEl.style.boxShadow = '0 0 0 4px rgba(230, 103, 61, 0.1)';
-                cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
         }
     }
 
-    function updateSingleCardDisplay() {
-        if (!CARDS_DATA || CARDS_DATA.length === 0) return;
+    async function handleVerifyCurrentSingle() {
         const card = CARDS_DATA[currentSingleIndex];
-        
-        document.getElementById('singleCardIndex').textContent = currentSingleIndex + 1;
-        document.getElementById('singleCardTotal').textContent = CARDS_DATA.length;
-        document.getElementById('singleCardImg').src = `/school/verification/image/${card.id}`;
-        document.getElementById('singleCardName').textContent = card.name || 'Student';
-        document.getElementById('singleCardGr').textContent = `GR: ${card.gr || 'N/A'} · Std: ${card.standard || CLASS_NAME}`;
-        
-        const badge = document.getElementById('singleCardStatusBadge');
-        badge.className = `card-status-badge status-${card.status}`;
-        badge.textContent = card.status.replace('_', ' ');
-
-        const verifyBtn = document.getElementById('singleVerifyBtn');
-        if (card.status === 'VERIFIED') {
-            verifyBtn.className = 'btn-verify btn-verified-active';
-            verifyBtn.innerHTML = '✓ Verified';
-        } else {
-            verifyBtn.className = 'btn-verify';
-            verifyBtn.innerHTML = '✓ Verify';
-        }
-        
-        scrollGridToActive();
-    }
-
-    function handleVerifyCurrentSingle() {
-        const card = CARDS_DATA[currentSingleIndex];
-        if (card) handleVerifyCard(card.id);
-    }
-
-    function handleEditCurrentSingle() {
-        const card = CARDS_DATA[currentSingleIndex];
-        if (card) openEditBottomSheet(card.id);
-    }
-
-    async function handleVerifyCard(cardId) {
-        const card = CARDS_DATA.find(c => c.id === cardId);
         if (!card) return;
 
+        // Optimistically update UI
         card.status = 'VERIFIED';
-        updateCardUI(cardId, 'VERIFIED');
+        updateGalleryItemStatus(card.id, 'VERIFIED');
 
+        // Trigger verify event
         window.idCardSync.enqueue({
             school_id: SCHOOL_ID,
-            card_id: cardId,
+            card_id: card.id,
             class_name: CLASS_NAME,
             operation_type: 'VERIFY',
             payload: {}
         });
+
+        // Automatically go to next card!
+        nextCard();
     }
 
-    function updateCardUI(cardId, newStatus) {
-        const badge = document.getElementById(`badge-${cardId}`);
-        if (badge) {
-            badge.className = `card-status-badge status-${newStatus}`;
-            badge.textContent = newStatus.replace('_', ' ');
-        }
-        const verifyBtn = document.getElementById(`btn-verify-${cardId}`);
-        if (verifyBtn) {
-            if (newStatus === 'VERIFIED') {
-                verifyBtn.className = 'btn-verify btn-verified-active';
-                verifyBtn.innerHTML = '✓ Verified';
-                verifyBtn.onclick = null;
-            } else {
-                verifyBtn.className = 'btn-verify';
-                verifyBtn.innerHTML = '✓ Verify';
-                verifyBtn.onclick = () => handleVerifyCard(cardId);
-            }
-        }
-        if (CARDS_DATA[currentSingleIndex] && CARDS_DATA[currentSingleIndex].id === cardId) {
-            updateSingleCardDisplay();
-        }
-    }
-
-    function openEditBottomSheet(cardId) {
-        const card = CARDS_DATA.find(c => c.id === cardId);
+    function openEditMode() {
+        const card = CARDS_DATA[currentSingleIndex];
         if (!card) return;
 
-        document.getElementById('edit_card_id').value = cardId;
+        // Populate Form
+        document.getElementById('edit_card_id').value = card.id;
         
         ACTIVE_FIELDS.forEach(f => {
             const input = document.getElementById(`field_${f.key}`);
@@ -754,35 +443,21 @@
         photoToggle.checked = (card.status === 'PHOTO_WRONG');
         toggleReplacementUpload(photoToggle.checked);
         document.getElementById('replacement_photo_input').value = '';
-        document.getElementById('replacementPreviewWrap').style.display = 'none';
 
-        const overlay = document.getElementById('editSheetOverlay');
-        overlay.classList.add('active');
-        document.body.style.overflow = 'hidden';
+        // UI Changes
+        document.getElementById('editOverlay').classList.add('active');
+        document.getElementById('normalBottomBar').style.display = 'none';
+        document.getElementById('editBottomBar').style.display = 'flex';
     }
 
-    function closeEditSheet(e, force = false) {
-        if (force || (e && e.target.id === 'editSheetOverlay')) {
-            const overlay = document.getElementById('editSheetOverlay');
-            overlay.classList.remove('active');
-            document.body.style.overflow = '';
-        }
+    function closeEditMode() {
+        document.getElementById('editOverlay').classList.remove('active');
+        document.getElementById('editBottomBar').style.display = 'none';
+        document.getElementById('normalBottomBar').style.display = 'flex';
     }
 
     function toggleReplacementUpload(isChecked) {
-        const wrap = document.getElementById('replacementUploadContainer');
-        wrap.style.display = isChecked ? 'block' : 'none';
-    }
-
-    function previewReplacementPhoto(input) {
-        if (input.files && input.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                document.getElementById('replacementPreviewImg').src = e.target.result;
-                document.getElementById('replacementPreviewWrap').style.display = 'block';
-            };
-            reader.readAsDataURL(input.files[0]);
-        }
+        document.getElementById('replacementUploadContainer').style.display = isChecked ? 'block' : 'none';
     }
 
     async function handleSaveCorrection(e) {
@@ -799,14 +474,15 @@
             const input = document.getElementById(`field_${f.key}`);
             if (input) {
                 fieldValues[f.key] = input.value.trim();
-                card[f.key] = fieldValues[f.key];
+                card[f.key] = fieldValues[f.key]; // Update local data
             }
         });
 
         const newStatus = isPhotoWrong ? 'PHOTO_WRONG' : 'CORRECTION_REQUIRED';
         card.status = newStatus;
-        updateCardUI(cardId, newStatus);
-        closeEditSheet(null, true);
+        updateGalleryItemStatus(cardId, newStatus);
+        
+        closeEditMode();
 
         let photoBase64 = null;
         let photoFilename = null;
@@ -831,24 +507,54 @@
             photo_file_base64: photoBase64,
             photo_filename: photoFilename
         });
+
+        // Automatically move to next card on save
+        nextCard();
     }
 
-    let searchTimeout = null;
-    function debounceSearch() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => applyFilters(), 300);
+    // GALLERY LOGIC
+    function renderGallery() {
+        const grid = document.getElementById('galleryGrid');
+        grid.innerHTML = '';
+        CARDS_DATA.forEach((card, index) => {
+            const div = document.createElement('div');
+            div.className = `gallery-item status-${card.status}`;
+            div.id = `gallery-item-${card.id}`;
+            div.onclick = () => jumpToCard(index);
+            
+            const img = document.createElement('img');
+            img.src = `/school/verification/image/${card.id}`;
+            img.loading = "lazy";
+            div.appendChild(img);
+            grid.appendChild(div);
+        });
     }
 
-    function applyFilters() {
-        const search = document.getElementById('searchInput').value;
-        const status = document.getElementById('statusFilter').value;
-        const sort = document.getElementById('sortSelect').value;
-        
-        const params = new URLSearchParams(window.location.search);
-        if (search) params.set('search', search); else params.delete('search');
-        if (status && status !== 'all') params.set('status', status); else params.delete('status');
-        if (sort && sort !== 'default') params.set('sort', sort); else params.delete('sort');
-        window.location.search = params.toString();
+    function updateGalleryItemStatus(cardId, status) {
+        const item = document.getElementById(`gallery-item-${cardId}`);
+        if(item) {
+            item.className = `gallery-item status-${status}`;
+        }
     }
+
+    function openGallery() {
+        document.getElementById('galleryOverlay').classList.add('active');
+        // Scroll to active card in gallery
+        const activeItem = document.getElementById(`gallery-item-${CARDS_DATA[currentSingleIndex].id}`);
+        if(activeItem) {
+            activeItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function closeGallery() {
+        document.getElementById('galleryOverlay').classList.remove('active');
+    }
+
+    function jumpToCard(index) {
+        currentSingleIndex = index;
+        updateSingleCardDisplay();
+        closeGallery();
+    }
+
 </script>
 {% endblock %}
