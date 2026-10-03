@@ -483,12 +483,12 @@ class IdCardService:
         class_stats: Dict[str, Dict[str, int]] = {}
         try:
             pipeline = [
-                {"$match": {"school_id": str(school_id)}},
+                {"$match": {"school_id": str(school_id), "image_available": True}},
                 {"$group": {
                     "_id": "$class_name",
                     "total": {"$sum": 1},
                     "verified": {"$sum": {"$cond": [{"$eq": ["$status", "VERIFIED"]}, 1, 0]}},
-                    "correction": {"$sum": {"$cond": [{"$in": ["$status", ["CORRECTION_REQUIRED", "PHOTO_WRONG"]]}, 1, 0]}}
+                    "correction": {"$sum": {"$cond": [{"$in": ["$status", ["CORRECTION_REQUIRED", "PHOTO_WRONG", "CORRECTED"]]}, 1, 0]}}
                 }}
             ]
             for stat in db.id_card_records.aggregate(pipeline):
@@ -502,22 +502,6 @@ class IdCardService:
         except Exception as ae:
             logger.debug(f"Record batch query note: {ae}")
 
-        stu_stats: Dict[str, int] = {}
-        if any(c not in class_stats for c in distinct_classes):
-            try:
-                pipeline = [
-                    {"$match": {"school_id": str(school_id)}},
-                    {"$group": {
-                        "_id": {"$ifNull": ["$standard", "$class_name"]},
-                        "count": {"$sum": 1}
-                    }}
-                ]
-                for stat in db.students.aggregate(pipeline):
-                    if stat["_id"]:
-                        stu_stats[str(stat["_id"])] = stat["count"]
-            except Exception:
-                pass
-
         classes_summary = []
         for cname in sorted(distinct_classes, key=lambda x: (int(''.join(filter(str.isdigit, str(x))) or '999'), str(x))):
             c_info = class_stats.get(cname, {"total": 0, "verified": 0, "correction": 0})
@@ -527,12 +511,6 @@ class IdCardService:
             pending = total - verified - correction
             if pending < 0:
                 pending = 0
-
-            # If no id_card_records yet, check student count
-            if total == 0:
-                stu_count = stu_stats.get(cname, 0)
-                total = stu_count
-                pending = stu_count
 
             classes_summary.append({
                 "class_name": cname,
@@ -590,7 +568,11 @@ class IdCardService:
         if count == 0:
             IdCardService.index_class_cards(school_id, class_name)
             
-        query: Dict[str, Any] = {"school_id": str(school_id), "class_name": class_name}
+        query: Dict[str, Any] = {
+            "school_id": str(school_id), 
+            "class_name": class_name,
+            "image_available": True
+        }
         
         if status and status != "all":
             if status == "CORRECTION_REQUIRED":
