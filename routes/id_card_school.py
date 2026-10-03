@@ -181,10 +181,18 @@ async def get_id_card_image(
             <rect x="50" y="520" width="300" height="40" rx="8" fill="#f1f5f9"/>
             <text x="200" y="545" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" fill="#64748b" text-anchor="middle">COMPLETE GENERATED ID CARD PREVIEW</text>
         </svg>"""
-        return Response(content=svg_content, media_type="image/svg+xml")
+        return Response(
+            content=svg_content, 
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "public, max-age=86400"}
+        )
 
     img_bytes, content_type = res
-    return Response(content=img_bytes, media_type=content_type)
+    return Response(
+        content=img_bytes, 
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400, immutable"}
+    )
 
 @router.post("/verification/verify")
 @router.post("/id-cards/verify")

@@ -421,33 +421,42 @@ class IdCardService:
         if not distinct_classes:
             distinct_classes = ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]
 
-        # Batch aggregate all counts in a single fast query
+        # Batch aggregate all counts in a single fast query using MongoDB aggregation
         class_stats: Dict[str, Dict[str, int]] = {}
         try:
-            records = list(db.id_card_records.find({"school_id": str(school_id)}, {"class_name": 1, "status": 1}))
-            for r in records:
-                cname = r.get("class_name")
-                if not cname:
+            pipeline = [
+                {"$match": {"school_id": str(school_id)}},
+                {"$group": {
+                    "_id": "$class_name",
+                    "total": {"$sum": 1},
+                    "verified": {"$sum": {"$cond": [{"$eq": ["$status", "VERIFIED"]}, 1, 0]}},
+                    "correction": {"$sum": {"$cond": [{"$in": ["$status", ["CORRECTION_REQUIRED", "PHOTO_WRONG"]]}, 1, 0]}}
+                }}
+            ]
+            for stat in db.id_card_records.aggregate(pipeline):
+                if not stat["_id"]:
                     continue
-                if cname not in class_stats:
-                    class_stats[cname] = {"total": 0, "verified": 0, "correction": 0}
-                class_stats[cname]["total"] += 1
-                st = r.get("status")
-                if st == "VERIFIED":
-                    class_stats[cname]["verified"] += 1
-                elif st in ["CORRECTION_REQUIRED", "PHOTO_WRONG"]:
-                    class_stats[cname]["correction"] += 1
+                class_stats[stat["_id"]] = {
+                    "total": stat.get("total", 0),
+                    "verified": stat.get("verified", 0),
+                    "correction": stat.get("correction", 0)
+                }
         except Exception as ae:
             logger.debug(f"Record batch query note: {ae}")
 
         stu_stats: Dict[str, int] = {}
         if any(c not in class_stats for c in distinct_classes):
             try:
-                stus = list(db.students.find({"school_id": str(school_id)}, {"standard": 1, "class_name": 1}))
-                for s in stus:
-                    std = s.get("standard") or s.get("class_name")
-                    if std:
-                        stu_stats[std] = stu_stats.get(std, 0) + 1
+                pipeline = [
+                    {"$match": {"school_id": str(school_id)}},
+                    {"$group": {
+                        "_id": {"$ifNull": ["$standard", "$class_name"]},
+                        "count": {"$sum": 1}
+                    }}
+                ]
+                for stat in db.students.aggregate(pipeline):
+                    if stat["_id"]:
+                        stu_stats[str(stat["_id"])] = stat["count"]
             except Exception:
                 pass
 
