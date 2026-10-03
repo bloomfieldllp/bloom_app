@@ -282,6 +282,23 @@ class IdCardService:
                 default_status = "CORRECTION_REQUIRED"
                 image_available = True
 
+            def _gv(keys):
+                for k in keys:
+                    if s.get(k): return str(s.get(k)).strip()
+                raw = s.get("raw_data") or {}
+                if isinstance(raw, dict):
+                    for k in keys:
+                        for rk, rv in raw.items():
+                            if str(rk).lower().replace("_", " ").replace("-", " ").strip() == k:
+                                return str(rv).strip()
+                return ""
+
+            custom = s.get("custom_fields", {})
+            if not isinstance(custom, dict): custom = {}
+            if "father_name" not in custom: custom["father_name"] = _gv(["father name", "father's name", "parent name", "father_name"])
+            if "mother_name" not in custom: custom["mother_name"] = _gv(["mother name", "mother's name", "mother_name"])
+            if "blood_group" not in custom: custom["blood_group"] = _gv(["blood group", "bg", "blood", "blood_group"])
+
             card_doc = {
                 "school_id": str(school_id),
                 "class_name": class_name,
@@ -291,10 +308,10 @@ class IdCardService:
                 "standard": s.get("standard") or s.get("class_name") or class_name,
                 "division": s.get("division") or s.get("section") or "",
                 "roll_number": s.get("roll_number", ""),
-                "date_of_birth": s.get("date_of_birth", "") or s.get("dob", ""),
-                "address": s.get("address", ""),
-                "phone": s.get("phone", ""),
-                "custom_fields": s.get("custom_fields", {}),
+                "date_of_birth": _gv(["date of birth", "dob", "birth date", "date_of_birth"]),
+                "address": _gv(["address", "residential address"]),
+                "phone": _gv(["phone", "mobile", "contact", "phone number", "mobile no"]),
+                "custom_fields": custom,
                 "file_stem": file_stem,
                 "image_filename": image_filename,
                 "image_available": image_available,
@@ -906,6 +923,13 @@ class IdCardService:
                 if not std_val or std_val.lower() == "nan":
                     std_val = default_class_name or "Class 1"
 
+                dob_val = str(row.get(col_map.get("dob", ""), "")).strip()
+                phone_val = str(row.get(col_map.get("phone", ""), "")).strip()
+                address_val = str(row.get(col_map.get("address", ""), "")).strip()
+                father_name = str(row.get(col_map.get("father_name", ""), "")).strip()
+                mother_name = str(row.get(col_map.get("mother_name", ""), "")).strip()
+                blood_group = str(row.get(col_map.get("blood_group", ""), "")).strip()
+
                 raw_record = {k: ("" if pd.isna(v) else str(v).strip()) for k, v in row.items()}
                 
                 # Update or insert student
@@ -917,6 +941,12 @@ class IdCardService:
                     "class_name": std_val,
                     "section": sec_val if sec_val != "nan" else "",
                     "photo_filename": photo_val if photo_val != "nan" else f"{gr_val}.png",
+                    "date_of_birth": dob_val if dob_val != "nan" else "",
+                    "phone": phone_val if phone_val != "nan" else "",
+                    "address": address_val if address_val != "nan" else "",
+                    "father_name": father_name if father_name != "nan" else "",
+                    "mother_name": mother_name if mother_name != "nan" else "",
+                    "blood_group": blood_group if blood_group != "nan" else "",
                     "raw_data": raw_record,
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
