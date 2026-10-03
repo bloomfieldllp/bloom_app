@@ -4,33 +4,18 @@
 
 {% block head %}
 <style>
-/* Reset body to be centered on desktop */
-body {
-    background-color: #cbd5e1;
-}
-
 /* Mobile-app like constraints */
 .mobile-app-container {
     max-width: 100%;
     width: 100%;
     margin: 0 auto;
-    height: 100dvh;
+    height: 100%;
+    min-height: 85vh;
     display: flex;
     flex-direction: column;
     background: #f8fafc;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 0 40px rgba(0,0,0,0.1);
-}
-
-@media (min-width: 768px) {
-    .mobile-app-container {
-        max-width: 430px;
-        height: 90vh;
-        margin-top: 5vh;
-        border-radius: 40px;
-        border: 8px solid #0f172a;
-    }
 }
 
 /* Header */
@@ -195,11 +180,16 @@ body {
 .gallery-grid {
     padding: 0 1.25rem 1.25rem 1.25rem;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
     gap: 0.75rem;
     overflow-y: auto;
     flex: 1;
     align-content: start;
+}
+@media (min-width: 768px) {
+    .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
 }
 .gallery-item {
     aspect-ratio: 1 / 1.45;
@@ -240,10 +230,7 @@ body {
 {% endblock %}
 
 {% block content %}
-<!-- We hide the default base.html padding if possible, or just overlay -->
-<div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #cbd5e1; z-index: 9999;">
-    
-    <div class="mobile-app-container">
+<div class="mobile-app-container">
 
         <!-- HEADER -->
         <div class="app-header" id="mainHeader">
@@ -345,7 +332,6 @@ body {
         </div>
 
     </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
