@@ -89,7 +89,7 @@
     <div class="info-callout">
         <strong>💡 Smart Upload & Auto-Filtering:</strong>
         <ul style="margin: 0.5rem 0 0 0; padding-left: 1.25rem;">
-            <li>Select your class folders or multiple files. The system uploads them in optimized streams to support hundreds or thousands of photos.</li>
+            <li>Select your class folders or multiple files. The system optimizes and streams photos individually to support hundreds or thousands of photos without server timeouts.</li>
             <li>Subfolder names (e.g., <code>Class 1</code>, <code>Class 5</code>, <code>Std 10</code>) are automatically mapped to classes.</li>
             <li>Any non-image files (such as PDFs, Word documents, or system files) in the folders are <strong>automatically filtered out and ignored</strong>.</li>
             <li>Uploaded student spreadsheets (Excel / CSV) automatically map student GR numbers, names, and contact details to the ID cards.</li>
@@ -237,7 +237,62 @@ function processFileList(files) {
     }
 }
 
-// Chunked Streaming Upload Handler (Bypasses Vercel 4.5MB Payload limit)
+// Client-side image optimizer to keep payloads well under 400KB per photo
+async function optimizeImageForUpload(file) {
+    if (file.size <= 400 * 1024) {
+        return file;
+    }
+
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                const maxDim = 1600;
+
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob && blob.size < file.size) {
+                            const optimizedFile = new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            resolve(optimizedFile);
+                        } else {
+                            resolve(file);
+                        }
+                    },
+                    'image/jpeg',
+                    0.88
+                );
+            };
+            img.onerror = () => resolve(file);
+            img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
+}
+
+// Sequential 1-by-1 Streaming Upload Handler (Bypasses Vercel 4.5MB Payload limit)
 async function handleFormSubmit(e) {
     e.preventDefault();
 
@@ -290,21 +345,23 @@ async function handleFormSubmit(e) {
             progressSub.textContent = rosterJson.message || 'Roster imported successfully.';
         }
 
-        // --- Step 2: Stream ID Card Images in Micro-Chunks (3-5 files per batch) ---
+        // --- Step 2: Stream ID Card Images 1-by-1 with client-side canvas compression ---
         const totalImages = validImageFiles.length;
         if (totalImages > 0) {
-            const BATCH_SIZE = 4; // Keeps payload under 1-2MB per request
             let uploadedCount = 0;
 
-            for (let i = 0; i < totalImages; i += BATCH_SIZE) {
-                const batch = validImageFiles.slice(i, i + BATCH_SIZE);
-                const chunkData = new FormData();
+            for (let i = 0; i < totalImages; i++) {
+                const origFile = validImageFiles[i];
+                const relPath = origFile.webkitRelativePath || origFile.name;
 
-                for (let file of batch) {
-                    const relPath = file.webkitRelativePath || file.name;
-                    chunkData.append('files', file, relPath);
-                    chunkData.append('file_paths', relPath);
-                }
+                progressSub.textContent = `Optimizing & uploading ${origFile.name} (${i + 1} of ${totalImages})...`;
+                
+                // Compress/optimize photo in browser before sending
+                const optimizedFile = await optimizeImageForUpload(origFile);
+
+                const chunkData = new FormData();
+                chunkData.append('files', optimizedFile, relPath);
+                chunkData.append('file_paths', relPath);
                 if (defaultClass) chunkData.append('default_class', defaultClass);
 
                 const chunkRes = await fetch(`/admin/schools/${SCHOOL_ID}/upload-card-chunk`, {
@@ -314,7 +371,7 @@ async function handleFormSubmit(e) {
 
                 if (!chunkRes.ok) {
                     const errText = await chunkRes.text();
-                    throw new Error(`Upload error on batch ${i / BATCH_SIZE + 1}: ${errText}`);
+                    throw new Error(`Upload error on photo ${origFile.name}: ${errText}`);
                 }
 
                 const chunkJson = await chunkRes.json();
@@ -322,12 +379,11 @@ async function handleFormSubmit(e) {
                     chunkJson.touched_classes.forEach(c => touchedClasses.add(c));
                 }
 
-                uploadedCount += batch.length;
+                uploadedCount++;
                 const percent = Math.min(95, Math.round((uploadedCount / totalImages) * 90) + (hasExcel ? 5 : 0));
                 progressBar.style.width = percent + '%';
                 progressPercent.textContent = percent + '%';
-                progressLabel.textContent = `Uploading ID Cards: ${uploadedCount} / ${totalImages} photos...`;
-                progressSub.textContent = `Processing: ${batch.map(b => b.name).join(', ')}`;
+                progressLabel.textContent = `Uploaded ID Cards: ${uploadedCount} / ${totalImages} photos (${percent}%)`;
             }
         }
 
