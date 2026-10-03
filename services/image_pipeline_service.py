@@ -41,6 +41,9 @@ class ImagePipelineService:
                 options={"access": "public", "contentType": "image/webp"}
             )
             return resp.get("url")
+        except ModuleNotFoundError:
+            logger.warning("vercel_blob package not installed; skipping upload.")
+            return None
         except Exception as e:
             logger.error(f"Vercel Blob upload failed for {pathname}: {e}")
             return None
