@@ -13,6 +13,8 @@ from services.google_sheets_service import GoogleSheetsService
 from database import get_db
 from utils import get_templates
 
+from services.image_pipeline_service import ImagePipelineService
+
 router = APIRouter(prefix="/school", dependencies=[Depends(RoleChecker(["school_admin"]))])
 templates = get_templates()
 
@@ -157,13 +159,29 @@ async def get_id_card_image(
     if user["role"] == "school_admin" and str(card["school_id"]) != str(user["school_id"]):
         raise HTTPException(status_code=403, detail="Forbidden: Access Denied")
 
+    # If already converted and hosted on Vercel Blob CDN, redirect directly
+    if card.get("vercel_blob_url"):
+        return RedirectResponse(card["vercel_blob_url"], status_code=307)
+
     school = db.schools.find_one({"_id": ObjectId(card["school_id"]) if ObjectId.is_valid(card["school_id"]) else card["school_id"]})
     school_name = school.get("name", card["school_id"]) if school else card["school_id"]
 
     file_stem = card.get("file_stem") or card.get("gr", "")
     res = GoogleDriveService.get_id_card_bytes(school_name, card.get("class_name", ""), file_stem)
 
-    if not res:
+    if res:
+        data, content_type = res
+        # Auto-convert and upload to Vercel Blob on first request
+        blob_url = ImagePipelineService.process_and_store_card_image(
+            school_id=str(card["school_id"]),
+            class_name=card.get("class_name", ""),
+            file_stem=file_stem,
+            raw_bytes=data,
+            card_id=str(card["_id"])
+        )
+        if blob_url:
+            return RedirectResponse(blob_url, status_code=307)
+        return Response(content=data, media_type=content_type)
         # Fallback SVG preview placeholder
         student_name = card.get("name", "Student")
         gr_no = card.get("gr", "N/A")
