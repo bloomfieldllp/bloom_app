@@ -255,7 +255,8 @@ class GoogleDriveService:
                     {"school_name_or_code": str(school_name_or_code).strip(), "class_name": str(class_name).strip()},
                     {"class_name": str(class_name).strip()}
                 ]
-            }))
+            }, {"image_bytes": 0})) # Exclude massive binary payload when just listing
+            
             existing_stems = {f["stem"] for f in files}
             for d in db_imgs:
                 stem = d.get("file_stem", "").lower().strip()
@@ -264,7 +265,7 @@ class GoogleDriveService:
                         "name": d.get("filename", f"{stem}.jpg"),
                         "stem": stem,
                         "extension": os.path.splitext(d.get("filename", ".jpg"))[1].lower(),
-                        "size": len(d.get("image_bytes", b"")) if d.get("image_bytes") else 0,
+                        "size": d.get("size", 0), # Default to 0 since we excluded bytes
                         "path": None,
                         "is_image": True,
                         "is_excel": False
